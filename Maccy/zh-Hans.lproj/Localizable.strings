@@ -30,3 +30,93 @@
 "history_item_image_accessibility_label_no_app" = "图像，%d×%d";
 "history_item_image_accessibility_generic" = "图像";
 "toolbar_remove_paste_stack_action" = "停止粘贴堆栈";
+
+"History" = "历史记录";
+
+"Ungrouped" = "未分组";
+
+"New group" = "新建分组";
+
+"Group name" = "分组名称";
+
+"Delete group" = "删除分组";
+
+"Add manually" = "手动添加";
+
+"Add text" = "添加文本";
+
+"Import files…" = "导入文件…";
+
+"Add content" = "添加内容";
+
+"Edit content" = "编辑内容";
+
+"Add text or files to this group." = "添加文本或文件到此分组。";
+
+"No matching content." = "没有匹配的内容。";
+
+"Group" = "分组";
+
+"Edit" = "编辑";
+
+"Delete" = "删除";
+
+"Save" = "保存";
+
+"Cancel" = "取消";
+
+"Discard changes" = "放弃修改";
+
+"Dismiss" = "关闭提示";
+
+"Manage preset" = "管理预设";
+
+"Image preset" = "图片预设";
+
+"Saved content" = "已保存内容";
+
+
+
+"Importing files…" = "正在导入文件…";
+
+"Cancel import" = "取消导入";
+
+"Save changes before leaving?" = "离开前保存修改？";
+
+"Only Copy" = "仅复制";
+
+"Open Settings" = "打开系统设置";
+
+"Drag history items onto a group to save." = "拖到分组即可保存";
+
+"↑↓ Select" = "↑↓ 选择";
+
+"↩ Copy" = "↩ 复制";
+
+"⌥↩ Paste" = "⌥↩ 粘贴";
+
+"Esc Close" = "Esc 关闭";
+
+"↩ Paste" = "↩ 粘贴";
+
+"⌥↩ Copy" = "⌥↩ 复制";
+
+"Enter a group name." = "请输入分组名称。";
+
+"Add content before saving." = "请先添加内容再保存。";
+
+"This group no longer exists." = "此分组已不存在。";
+
+"This preset no longer exists." = "此预设已不存在。";
+
+"Choose regular files, not folders, packages or symbolic links." = "请选择普通文件，不支持文件夹、文件包或符号链接。";
+
+"The saved attachment is unavailable." = "保存的附件不可用。";
+
+"Allow Accessibility access to paste. You can still copy." = "粘贴需要辅助功能权限。你仍可仅复制内容。";
+
+"The target application changed or is unavailable. Reopen Maccy from the intended application, or only copy." = "目标应用已改变或不可用。请从目标应用重新打开 Maccy，或仅复制内容。";
+
+"The target application changed or is unavailable. Nothing was pasted." = "目标应用已改变或不可用，未执行粘贴。";
+
+"Cancelling import…" = "正在取消导入…";

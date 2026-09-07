@@ -65,6 +65,21 @@ brew install maccy
 11. To ignore only the next copy, click on the menu icon with <kbd>OPTION (⌥)</kbd> + <kbd>SHIFT (⇧)</kbd> pressed.
 12. To customize the behavior, check "Preferences…" window, or press <kbd>COMMAND (⌘)</kbd> + <kbd>,</kbd>.
 
+### Grouped presets (development checkout)
+
+Use the tabs above the search field to switch between history and saved groups. The `+`
+button creates a group; **Add manually** adds text or imports files in the same window.
+Presets use their content as the label and search the full text of the current group.
+Use a preset's `…` menu to edit, move it to another group, or delete it. Deleting a group
+keeps its presets under **Ungrouped**; clearing clipboard history does not delete presets.
+
+History items can be dragged onto a group to save a copy. Imported files are copied into
+the app's storage and remain available when the original moves or disappears. This checkout
+does not automatically reclaim attachment files. Copy and paste use the existing preferences
+and shortcuts; automatic paste requires Accessibility access and the original target application
+still in the foreground. Switching windows within that application is not detected; paste goes
+to its current input target. When the application changes or is unavailable, **Only Copy** remains available.
+
 ## Advanced
 
 ### Ignore Copied Items

@@ -17,17 +17,15 @@ struct KeyHandlingView<Content: View>: View {
         // so pressing ⌘, on non-English layout doesn't open
         // preferences. Stick to NSEvent to fix this behavior.
 
-        if searchFocused {
-          // Ignore input when candidate window is open
-          // https://stackoverflow.com/questions/73677444/how-to-detect-the-candidate-window-when-using-japanese-keyboard
-          if let inputClient = NSApp.keyWindow?.firstResponder as? NSTextInputClient,
-             inputClient.hasMarkedText() {
-            return .ignored
-          }
-        }
+        // Editing and IME own their keys, including Enter/Escape and standard text shortcuts.
+        if let inputClient = NSApp.keyWindow?.firstResponder as? NSTextInputClient,
+           inputClient.hasMarkedText() { return .ignored }
+        if appState.interactionLocked { return .ignored }
 
         switch KeyChord(NSApp.currentEvent) {
         case .clearHistory:
+          guard appState.scope == .history else { return .handled }
+          appState.suspendSending()
           if let item = appState.footer.items.first(where: { $0.title == "clear" }),
              item.confirmation != nil,
              let suppressConfirmation = item.suppressConfirmation {
@@ -41,6 +39,8 @@ struct KeyHandlingView<Content: View>: View {
             return .ignored
           }
         case .clearHistoryAll:
+          guard appState.scope == .history else { return .handled }
+          appState.suspendSending()
           if let item = appState.footer.items.first(where: { $0.title == "clear_all" }),
              item.confirmation != nil,
              let suppressConfirmation = item.suppressConfirmation {
@@ -109,7 +109,7 @@ struct KeyHandlingView<Content: View>: View {
           guard NSApp.characterPickerWindow == nil else {
             return .ignored
           }
-          guard AppState.shared.multiSelectionEnabled else {
+          guard appState.scope == .history, AppState.shared.multiSelectionEnabled else {
             return .ignored
           }
           appState.navigator.extendHighlightToNext()
@@ -118,7 +118,7 @@ struct KeyHandlingView<Content: View>: View {
           guard NSApp.characterPickerWindow == nil else {
             return .ignored
           }
-          guard AppState.shared.multiSelectionEnabled else {
+          guard appState.scope == .history, AppState.shared.multiSelectionEnabled else {
             return .ignored
           }
           appState.navigator.extendHighlightToLast()
@@ -127,7 +127,7 @@ struct KeyHandlingView<Content: View>: View {
           guard NSApp.characterPickerWindow == nil else {
             return .ignored
           }
-          guard AppState.shared.multiSelectionEnabled else {
+          guard appState.scope == .history, AppState.shared.multiSelectionEnabled else {
             return .ignored
           }
           appState.navigator.extendHighlightToPrevious()
@@ -136,7 +136,7 @@ struct KeyHandlingView<Content: View>: View {
           guard NSApp.characterPickerWindow == nil else {
             return .ignored
           }
-          guard AppState.shared.multiSelectionEnabled else {
+          guard appState.scope == .history, AppState.shared.multiSelectionEnabled else {
             return .ignored
           }
           appState.navigator.extendHighlightToFirst()
@@ -160,14 +160,7 @@ struct KeyHandlingView<Content: View>: View {
           ()
         }
 
-        if let item = appState.history.pressedShortcutItem {
-          appState.navigator.select(item: item)
-          Task {
-            try? await Task.sleep(for: .milliseconds(50))
-            appState.history.select(item, flags: .currentModifierFlags)
-          }
-          return .handled
-        }
+        if let event = NSApp.currentEvent, appState.selectShortcut(event) { return .handled }
 
         return .ignored
       }

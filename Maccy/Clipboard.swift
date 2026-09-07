@@ -3,14 +3,24 @@ import Defaults
 import Sauce
 
 class Clipboard {
+  #if DEBUG
+  static let shared = Clipboard(pasteboard: AppDelegate.isUnitTesting
+    ? NSPasteboard(name: .init(Defaults.Keys.testingSuiteName)) : .general)
+  #else
   static let shared = Clipboard()
+  #endif
+
+  struct Content {
+    var type: String
+    var value: Data?
+  }
 
   typealias OnNewCopyHook = (HistoryItem) -> Void
 
   private var onNewCopyHooks: [OnNewCopyHook] = []
   var changeCount: Int
 
-  private let pasteboard = NSPasteboard.general
+  let pasteboard: NSPasteboard
 
   private var timer: Timer?
 
@@ -33,9 +43,12 @@ class Clipboard {
   private var enabledTypes: Set<NSPasteboard.PasteboardType> { Defaults[.enabledPasteboardTypes] }
   private var disabledTypes: Set<NSPasteboard.PasteboardType> { supportedTypes.subtracting(enabledTypes) }
 
-  private var sourceApp: NSRunningApplication? { NSWorkspace.shared.frontmostApplication }
+  private var sourceApp: NSRunningApplication? {
+    AppDelegate.isUnitTesting ? .current : NSWorkspace.shared.frontmostApplication
+  }
 
-  init() {
+  init(pasteboard: NSPasteboard = .general) {
+    self.pasteboard = pasteboard
     changeCount = pasteboard.changeCount
   }
 
@@ -75,33 +88,8 @@ class Clipboard {
   func copy(_ item: HistoryItem?, removeFormatting: Bool = false) {
     guard let item else { return }
 
-    pasteboard.clearContents()
-    var contents = item.contents
-
-    if removeFormatting {
-      contents = clearFormatting(contents)
-    }
-
-    for content in contents {
-      guard content.type != NSPasteboard.PasteboardType.fileURL.rawValue else { continue }
-      pasteboard.setData(content.value, forType: NSPasteboard.PasteboardType(content.type))
-    }
-
-    // Use writeObjects for file URLs so that multiple files that are copied actually work.
-    // Only do this for file URLs because it causes an issue with some other data types (like formatted text)
-    // where the item is pasted more than once.
-    let fileURLItems: [NSPasteboardItem] = contents.compactMap { item in
-      guard item.type == NSPasteboard.PasteboardType.fileURL.rawValue else { return nil }
-      guard let value = item.value else { return nil }
-      let pasteItem = NSPasteboardItem()
-      pasteItem.setData(value, forType: NSPasteboard.PasteboardType(item.type))
-      return pasteItem
-    }
-    pasteboard.writeObjects(fileURLItems)
-
-    pasteboard.setString("", forType: .fromMaccy)
-    pasteboard.setString(item.application ?? "", forType: .source)
-    sync()
+    _ = copy(contents: item.contents.map { Content(type: $0.type, value: $0.value) },
+             application: item.application ?? "", removeFormatting: removeFormatting, captureAsHistory: true)
 
     Task {
       Notifier.notify(body: item.title, sound: .knock)
@@ -109,9 +97,37 @@ class Clipboard {
     }
   }
 
+  @MainActor
+  @discardableResult
+  func copy(contents source: [Content], application: String = "", removeFormatting: Bool = false,
+            captureAsHistory: Bool = false) -> Bool {
+    let contents = removeFormatting ? clearFormatting(source) : source
+    guard contents.contains(where: { $0.value != nil }) else { return false }
+    pasteboard.clearContents()
+    var succeeded = true
+    for content in contents where content.type != NSPasteboard.PasteboardType.fileURL.rawValue {
+      succeeded = pasteboard.setData(content.value, forType: .init(content.type)) && succeeded
+    }
+    // Preserve one pasteboard item per file, including order and multiple files with the same name.
+    let files: [NSPasteboardItem] = contents.compactMap { content in
+      guard content.type == NSPasteboard.PasteboardType.fileURL.rawValue, let data = content.value else { return nil }
+      let item = NSPasteboardItem()
+      item.setData(data, forType: .fileURL)
+      return item
+    }
+    if !files.isEmpty { succeeded = pasteboard.writeObjects(files) && succeeded }
+    succeeded = pasteboard.setString("", forType: .fromMaccy) && succeeded
+    succeeded = pasteboard.setString(application, forType: .source) && succeeded
+    // Preset writes must not be captured as new history by the polling timer.
+    if !captureAsHistory { changeCount = pasteboard.changeCount }
+    sync()
+    return succeeded
+  }
+
   // Based on https://github.com/Clipy/Clipy/blob/develop/Clipy/Sources/Services/PasteService.swift.
-  func paste() {
-    Accessibility.check()
+  @discardableResult
+  func paste(onlyIf: () -> Bool = { true }) -> Bool {
+    guard Accessibility.allowed, onlyIf() else { return false }
 
     // Add flag that left/right modifier key has been pressed.
     // See https://github.com/TermiT/Flycut/pull/18 for details.
@@ -136,6 +152,7 @@ class Clipboard {
     keyVUp?.flags = cmdFlag
     keyVDown?.post(tap: .cgSessionEventTap)
     keyVUp?.post(tap: .cgSessionEventTap)
+    return keyVDown != nil && keyVUp != nil
   }
 
   func clear() {
@@ -290,6 +307,7 @@ class Clipboard {
   // - Chrome Remote Desktop (https://github.com/p0deje/Maccy/issues/948)
   // - Netbeans (https://github.com/p0deje/Maccy/issues/879)
   private func sync() {
+    guard !AppDelegate.isUnitTesting else { return }
     guard let app = sourceApp,
           app.bundleURL?.lastPathComponent == "Chrome Remote Desktop.app" ||
             app.localizedName?.contains("NetBeans") == true else {
@@ -300,8 +318,8 @@ class Clipboard {
     NSApp.hide(self)
   }
 
-  private func clearFormatting(_ contents: [HistoryItemContent]) -> [HistoryItemContent] {
-    var newContents: [HistoryItemContent] = contents
+  private func clearFormatting(_ contents: [Content]) -> [Content] {
+    var newContents: [Content] = contents
     let stringContents = contents.filter { NSPasteboard.PasteboardType($0.type) == .string }
 
     // If there is no string representation of data,

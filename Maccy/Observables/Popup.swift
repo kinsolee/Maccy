@@ -54,6 +54,7 @@ class Popup {
   private var state: PopupState = .toggle
 
   init() {
+    if AppDelegate.isUnitTesting { return }
     KeyboardShortcuts.onKeyDown(for: .popup, action: handleFirstKeyDown)
     initEventsMonitor()
   }
@@ -81,9 +82,11 @@ class Popup {
     AppState.shared.appDelegate?.panel.open(height: height, at: popupPosition)
   }
 
+  func cancelCycle() { state = .toggle }
+
   func reset() {
     state = .toggle
-    KeyboardShortcuts.enable(.popup)
+    if !AppDelegate.isUnitTesting { KeyboardShortcuts.enable(.popup) }
   }
 
   func close() {
@@ -143,15 +146,11 @@ class Popup {
   }
 
   private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+    guard !isClosed(), !AppState.shared.interactionLocked else { return event }
+    if let client = NSApp.keyWindow?.firstResponder as? NSTextInputClient, client.hasMarkedText() { return event }
     if isHotKeyCode(Int(event.keyCode)) {
-      if let item = History.shared.pressedShortcutItem {
-        AppState.shared.navigator.select(item: item)
-        let modifierFlags = NSEvent.ModifierFlags.currentModifierFlags
-        Task { @MainActor in
-          AppState.shared.history.select(item, flags: modifierFlags)
-        }
-        return nil
-      }
+      // AppKit delivers local event monitor callbacks on the main thread.
+      if MainActor.assumeIsolated({ AppState.shared.selectShortcut(event) }) { return nil }
 
       if state == .opening {
         state = .cycle
@@ -173,11 +172,14 @@ class Popup {
   }
 
   private func handleFlagsChanged(_ event: NSEvent) -> NSEvent? {
+    guard !isClosed(), !AppState.shared.interactionLocked else { return event }
     // If we are in cycle mode, releasing modifiers triggers a selection
     if state == .cycle && allModifiersReleased(event) {
       let modifierFlags = NSEvent.ModifierFlags.currentModifierFlags
+      let request = AppState.shared.captureSend(flags: modifierFlags)
+      state = .toggle
       DispatchQueue.main.async {
-        AppState.shared.select(flags: modifierFlags)
+        if let request { AppState.shared.send(request) }
       }
       return nil
     }

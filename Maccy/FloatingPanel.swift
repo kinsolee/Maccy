@@ -36,10 +36,12 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
     delegate = self
 
     animationBehavior = .none
-    isFloatingPanel = true
-    // Chrome autofill uses window layer 999; screenSaver (1000) sits just above it
-    // while still covering status items / Spotlight. See #1403.
-    level = .screenSaver
+    // AC05: the window server never dispatches dragging-destination events to
+    // panels registered with isFloatingPanel=true, even at identical levels.
+    // Chrome autofill uses window layer 999; modalPanel (8) is the highest level
+    // verified to receive drag events (screenSaver 1000 never does). Tradeoff:
+    // Chrome autofill popups can cover this panel. See #1403.
+    level = .modalPanel
     collectionBehavior = [.auxiliary, .stationary, .moveToActiveSpace, .fullScreenAuxiliary]
     titleVisibility = .hidden
     titlebarAppearsTransparent = true
@@ -53,7 +55,7 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
     standardWindowButton(.miniaturizeButton)?.isHidden = true
     standardWindowButton(.zoomButton)?.isHidden = true
 
-    contentView = NSHostingView(
+    contentView = PresetDropHostingView(
       rootView: view()
         // The safe area is ignored because the title bar still interferes with the geometry
         .ignoresSafeArea()
@@ -74,6 +76,7 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
   }
 
   func open(height: CGFloat, at popupPosition: PopupPosition = Defaults[.popupPosition]) {
+    if !isPresented { AppState.shared.beginPopupSession() }
     let size = Defaults[.windowSize]
     let miniumHeight: CGFloat = AppState.shared.popup.minimumHeight
     let finalWidth = min(frame.width, size.width)
@@ -92,15 +95,14 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
   }
 
   func verticallyResize(to newHeight: CGFloat) {
+    // Preview owns the frame while animating; its completion applies the latest height.
+    guard !AppState.shared.preview.state.isAnimating else { return }
     var newSize = frame.size
     newSize.height = newHeight
     var newOrigin = frame.origin
     newOrigin.y += (frame.height - newSize.height)
 
-    NSAnimationContext.runAnimationGroup { (context) in
-      context.duration = 0.2
-      animator().setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
-    }
+    setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
   }
 
   func determinePreviewPlacement() {
@@ -207,6 +209,14 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
   }
 
   override func close() {
+    let state = AppState.shared
+    if state.importInProgress || state.activeDrag != nil { return }
+    if state.editor != nil || state.newGroupName != nil {
+      state.requestChange { self.close() }
+      return
+    }
+    state.clearManagement()
+    state.endPopupSession()
     super.close()
     AppState.shared.preview.state = .closed
     isPresented = false

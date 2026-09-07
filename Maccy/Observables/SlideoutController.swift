@@ -1,7 +1,7 @@
+import AppKit
 import Defaults
 import Logging
 import Observation
-import SwiftUI
 
 enum SlideoutState {
   case opening
@@ -26,24 +26,6 @@ enum SlideoutState {
       return false
     }
   }
-
-  fileprivate func toggleWithAnimation() -> SlideoutState {
-    switch self {
-    case .open, .opening:
-      return .closing
-    case .closed, .closing:
-      return .opening
-    }
-  }
-
-  func animationDone() -> SlideoutState {
-    switch self {
-    case .open, .opening:
-      return .open
-    case .closed, .closing:
-      return .closed
-    }
-  }
 }
 
 enum SlideoutPlacement {
@@ -65,14 +47,12 @@ enum ResizingMode {
 @Observable
 class SlideoutController {
   let logger = Logger(label: "org.p0deje.Maccy")
-  private static let animationDuration = 0.25
 
   let onContentResize: (CGFloat) -> Void
   let onSlideoutResize: (CGFloat) -> Void
 
   let minimumContentWidth: CGFloat = 200
   var contentResizeWidth: CGFloat = 0
-  var contentAnimationWidth: CGFloat?
 
   let minimumSlideoutWidth: CGFloat = 200
   var slideoutResizeWidth: CGFloat = 0
@@ -102,9 +82,6 @@ class SlideoutController {
     return AppState.shared.appDelegate?.panel
   }
 
-  private var windowAnimationOrigin: CGPoint?
-  private var windowAnimationOriginBaseState: SlideoutState = .closed
-
   private var autoOpenTask: Task<Void, Never>?
   private var autoOpenSuppressed = false
   private var autoOpenEnabled = true
@@ -112,16 +89,6 @@ class SlideoutController {
   init(onContentResize: @escaping (CGFloat) -> Void, onSlideoutResize: @escaping (CGFloat) -> Void) {
     self.onContentResize = onContentResize
     self.onSlideoutResize = onSlideoutResize
-  }
-
-  private func togglePreviewStateWithAnimation(windowFrame: NSRect) {
-    let newValue = state.toggleWithAnimation()
-    if !state.isAnimating && newValue.isAnimating {
-      contentAnimationWidth = contentWidth
-      windowAnimationOrigin = windowFrame.origin
-      windowAnimationOriginBaseState = state
-    }
-    state = newValue
   }
 
   func computePlacement(window: NSWindow, for size: NSSize) -> SlideoutPlacement {
@@ -145,59 +112,43 @@ class SlideoutController {
   }
 
   func togglePreview(trigger: SlideoutToggleTrigger = .manual) {
-    if !state.isOpen {
+    let wasOpen = state.isOpen
+    if !wasOpen {
+      guard !AppState.shared.interactionLocked else { return }
       let navigator = AppState.shared.navigator
-      guard navigator.leadHistoryItem != nil || navigator.pasteStackSelected else { return }
+      let presetSelected: Bool
+      if case .preset = navigator.target { presetSelected = true } else { presetSelected = false }
+      guard navigator.leadHistoryItem != nil || navigator.pasteStackSelected || presetSelected else { return }
     }
 
     if trigger == .manual {
-      if state.isOpen {
-        autoOpenSuppressed = true
-      } else {
-        autoOpenSuppressed = false
-      }
+      autoOpenSuppressed = wasOpen
     }
 
     cancelAutoOpen()
-    withAnimation(.easeInOut(duration: Self.animationDuration), completionCriteria: .removed) {
-      if let window = nswindow {
-        togglePreviewStateWithAnimation(windowFrame: window.frame)
-        var newSize = window.frame.size
-        newSize.width = contentWidth
-        newSize = computeSizeWithPreview(newSize, state: self.state)
-        if state.isOpen {
-          placement = computePlacement(window: window, for: newSize)
-        }
 
-        let expectedAnimationState = state
-        NSAnimationContext.runAnimationGroup { (context) in
-          var newOrigin = windowAnimationOrigin ?? window.frame.origin
-          newOrigin.y += (window.frame.height - newSize.height)
-
-          if placement == .left {
-            if windowAnimationOriginBaseState == .closed && state.isOpen {
-              newOrigin.x -= slideoutWidth
-            } else if windowAnimationOriginBaseState == .open
-              && !state.isOpen {
-              newOrigin.x += slideoutWidth
-            }
-            // Otherwise the base is the desired position
-          }
-          context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-          context.completionHandler = {
-            if self.state == expectedAnimationState {
-              self.state = expectedAnimationState.animationDone()
-            }
-          }
-          context.duration = Self.animationDuration
-          window.animator().setFrame(
-            NSRect(origin: newOrigin, size: newSize),
-            display: true
-          )
-        }
+    // The frame changes in a single synchronous setFrame: window.animator()
+    // completions interrupted by rapid toggles or concurrent height updates
+    // leave the panel at stale intermediate sizes, and animating the frame
+    // concurrently with a drag session breaks the drag event loop.
+    let target: SlideoutState = wasOpen ? .closed : .open
+    // The transient animating state keeps windowWillResize from persisting the intermediate frame.
+    state = wasOpen ? .closing : .opening
+    if let window = nswindow {
+      var newSize = window.frame.size
+      newSize.width = contentWidth
+      newSize = computeSizeWithPreview(newSize, state: target)
+      if target == .open {
+        placement = computePlacement(window: window, for: newSize)
       }
-    } completion: {
+      var newOrigin = window.frame.origin
+      newOrigin.y = window.frame.maxY - newSize.height
+      if placement == .left {
+        newOrigin.x += target == .open ? -slideoutWidth : slideoutWidth
+      }
+      window.setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
     }
+    state = target
   }
 
   func startResize(mode: ResizingMode) {
@@ -224,6 +175,7 @@ class SlideoutController {
     cancelAutoOpen()
 
     guard Defaults[.openPreviewAutomatically] else { return }
+    guard !AppState.shared.interactionLocked else { return }
     guard autoOpenEnabled else { return }
     guard !autoOpenSuppressed else { return }
     guard !state.isOpen else { return }
@@ -232,6 +184,7 @@ class SlideoutController {
       try? await Task.sleep(for: .milliseconds(Defaults[.previewDelay]))
       guard !Task.isCancelled else { return }
       guard Defaults[.openPreviewAutomatically] else { return }
+      guard !AppState.shared.interactionLocked else { return }
 
       if !state.isOpen {
         togglePreview(trigger: .autoOpen)

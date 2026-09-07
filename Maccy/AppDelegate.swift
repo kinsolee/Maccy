@@ -5,6 +5,11 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
   static let isTesting = CommandLine.arguments.contains("enable-testing")
+  #if DEBUG
+  static let isUnitTesting = isTesting && CommandLine.arguments.contains("disable-app-startup")
+  #else
+  static let isUnitTesting = false
+  #endif
   var panel: FloatingPanel<ContentView>!
 
   @objc
@@ -35,6 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItemVisibilityObserver: NSKeyValueObservation?
 
   func applicationWillFinishLaunching(_ notification: Notification) { // swiftlint:disable:this function_body_length
+    if Self.isUnitTesting { return }
     #if DEBUG
     if Self.isTesting {
       SPUUpdater(hostBundle: Bundle.main,
@@ -106,6 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ aNotification: Notification) {
+    if Self.isUnitTesting { return }
     migrateUserDefaults()
     disableUnusedGlobalHotkeys()
 
@@ -120,11 +127,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    if Self.isUnitTesting { return false }
     panel.toggle(height: AppState.shared.popup.height)
     return true
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    if Self.isUnitTesting { return }
     if Defaults[.clearOnQuit] {
       AppState.shared.history.clear()
     }

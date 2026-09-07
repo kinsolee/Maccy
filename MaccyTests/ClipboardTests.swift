@@ -5,7 +5,7 @@ import Defaults
 // swiftlint:disable type_body_length
 class ClipboardTests: XCTestCase {
   let clipboard = Clipboard.shared
-  let pasteboard = NSPasteboard.general
+  let pasteboard = Clipboard.shared.pasteboard
   let image = NSImage(named: "NSInfo")!
   let coloredString = NSAttributedString(string: "foo",
                                          attributes: [.foregroundColor: NSColor.red])
@@ -25,6 +25,10 @@ class ClipboardTests: XCTestCase {
   let savedIgnoreAllAppsExceptListed = Defaults[.ignoreAllAppsExceptListed]
   let savedIgnoredApps = Defaults[.ignoredApps]
   let savedIgnoredPasteboardTypes = Defaults[.ignoredPasteboardTypes]
+
+  override func setUpWithError() throws {
+    try XCTSkipUnless(AppDelegate.isUnitTesting, "Clipboard tests require the isolated unit-test configuration.")
+  }
 
   override func setUp() {
     super.setUp()
@@ -136,8 +140,8 @@ class ClipboardTests: XCTestCase {
     XCTAssertFalse(Defaults[.ignoreOnlyNextEvent])
   }
 
-  func testIgnoreApplication() {
-    Defaults[.ignoredApps] = ["com.apple.dt.Xcode", "com.apple.finder"] // Finder is on Bitrise
+  func testIgnoreApplication() throws {
+    Defaults[.ignoredApps] = [try XCTUnwrap(NSRunningApplication.current.bundleIdentifier)]
 
     let hookExpectation = expectation(description: "Hook is called")
     hookExpectation.isInverted = true
@@ -150,9 +154,9 @@ class ClipboardTests: XCTestCase {
     waitForExpectations(timeout: 2)
   }
 
-  func testIgnoreAllApplicationsExcept() {
+  func testIgnoreAllApplicationsExcept() throws {
     Defaults[.ignoreAllAppsExceptListed] = true
-    Defaults[.ignoredApps] = ["com.apple.dt.Xcode", "com.apple.finder"] // Finder is on Bitrise
+    Defaults[.ignoredApps] = [try XCTUnwrap(NSRunningApplication.current.bundleIdentifier)]
 
     let hookExpectation = expectation(description: "Hook is called")
     clipboard.onNewCopy({ (_: HistoryItem) in
