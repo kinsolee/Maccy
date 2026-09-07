@@ -157,9 +157,10 @@ private struct PresetRowView: View {
             .foregroundStyle(.secondary)
           }
         }
-        .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
-        .padding(.leading, 14)
-        .padding(.vertical, 7)
+        // Same row metrics as history items (ListItemView).
+        .frame(maxWidth: .infinity, minHeight: Popup.itemHeight, alignment: .leading)
+        .padding(.leading, 10)
+        .padding(.vertical, 5)
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
@@ -172,15 +173,17 @@ private struct PresetRowView: View {
       Menu {
         Button("Edit") { appState.beginEditPreset(result.id) }
         Button("Delete", role: .destructive) { appState.requestDelete(.preset(result.id)) }
-      } label: { Image(systemName: "ellipsis").frame(width: 24, height: 26) }
+      } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
       .menuStyle(.borderlessButton)
       .menuIndicator(.hidden)
       .opacity(hovered || selected ? 1 : 0)
       .accessibilityLabel(Text("Manage preset"))
       .padding(.horizontal, 6)
     }
-    .background(selected ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 6))
-    .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Color.accentColor : .clear))
+    // Match the history row's selection appearance.
+    .foregroundStyle(selected ? Color.white : .primary)
+    .background(selected ? Color.accentColor.opacity(0.8) : .white.opacity(0.001))
+    .clipShape(RoundedRectangle(cornerRadius: Popup.cornerRadius))
     .padding(.horizontal, 4)
     .onHover { hovered = $0 }
     .hoverSelectionId(result.id)
