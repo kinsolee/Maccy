@@ -16,7 +16,7 @@ struct ContentView: View {
         VisualEffectView()
       }
 
-      KeyHandlingView(searchQuery: $appState.history.searchQuery, searchFocused: $searchFocused) {
+      KeyHandlingView(searchQuery: $appState.searchQuery, searchFocused: $searchFocused) {
         VStack(spacing: 0) {
           SlideoutView(controller: appState.preview) {
             HeaderView(
@@ -25,12 +25,27 @@ struct ContentView: View {
             )
 
             VStack(alignment: .leading, spacing: 0) {
-              HistoryListView(
-                searchQuery: $appState.history.searchQuery,
-                searchFocused: $searchFocused
-              )
+              if appState.sendProblem != nil {
+                PresetSendProblemView()
+              } else if appState.editor != nil || appState.newGroupName != nil || appState.importInProgress {
+                PresetManagementView()
+              } else {
+                if let error = appState.errorMessage {
+                  HStack {
+                    Text(error).foregroundStyle(.red)
+                    Spacer()
+                    Button("Dismiss") { appState.errorMessage = nil }
+                  }.padding(10)
+                }
+                if appState.scope == .history {
+                  HistoryListView(searchQuery: $appState.searchQuery, searchFocused: $searchFocused)
+                  FooterView(footer: appState.footer)
+                } else {
+                  PresetListView()
+                  PresetFooterView()
+                }
+              }
 
-              FooterView(footer: appState.footer)
             }
             .animation(.default.speed(3), value: appState.history.items)
             .animation(
@@ -42,7 +57,7 @@ struct ContentView: View {
               searchFocused = true
             }
             .onMouseMove {
-              appState.navigator.isKeyboardNavigating = false
+              if !appState.interactionLocked { appState.navigator.isKeyboardNavigating = false }
             }
           } slideout: {
             SlideoutContentView()
@@ -66,6 +81,7 @@ struct ContentView: View {
          let bundleIdentifier = Bundle.main.bundleIdentifier,
          window.identifier == NSUserInterfaceItemIdentifier(bundleIdentifier) {
         scenePhase = .active
+        if !appState.interactionLocked { searchFocused = true }
       }
     }
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) {

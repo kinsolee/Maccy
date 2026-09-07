@@ -12,6 +12,9 @@
     "commandLineArgumentEntries" : [
       {
         "argument" : "enable-testing"
+      },
+      {
+        "argument" : "disable-app-startup"
       }
     ],
     "targetForVariableExpansion" : {

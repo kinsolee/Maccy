@@ -1,6 +1,19 @@
 import Foundation
 import SwiftUI
 
+enum PopupTarget: Equatable {
+  case history(UUID)
+  case preset(UUID)
+  case footer(UUID)
+  case stack(UUID)
+
+  var id: UUID {
+    switch self {
+    case .history(let id), .preset(let id), .footer(let id), .stack(let id): id
+    }
+  }
+}
+
 @Observable
 class NavigationManager { // swiftlint:disable:this type_body_length
   private var history: History
@@ -18,16 +31,43 @@ class NavigationManager { // swiftlint:disable:this type_body_length
     }
   }
 
-  var scrollTarget: UUID?
-  var leadSelection: UUID? {
-    if let item = leadHistoryItem {
-      return item.id
-    }
-    if let footerItem = footer.selectedItem {
-      return footerItem.id
-    }
-    return history.pasteStack?.id
+  @ObservationIgnored var selectionDidChange: (() -> Void)?
+  @ObservationIgnored var interactionLocked: () -> Bool = { false }
+  private(set) var target: PopupTarget? {
+    didSet { if target != oldValue { selectionDidChange?() } }
   }
+  private(set) var isHistoryScope = true
+  var presetIDs: [UUID] = []
+  var scrollTarget: UUID?
+  var leadSelection: UUID? { target?.id }
+
+  func enterScope(history: Bool, presetIDs: [UUID] = []) {
+    selection = .init()
+    leadHistoryItem = nil
+    footer.selectedItem = nil
+    target = nil
+    scrollTarget = nil
+    hoverSelectionWhileKeyboardNavigating = nil
+    isManualMultiSelect = false
+    isKeyboardNavigating = true
+    isHistoryScope = history
+    self.presetIDs = presetIDs
+  }
+
+  func selectPreset(_ id: UUID?) {
+    guard !interactionLocked(), !isHistoryScope else { return }
+    target = id.flatMap { presetIDs.contains($0) ? .preset($0) : nil }
+    scrollTarget = target?.id
+  }
+
+  private func movePreset(_ offset: Int, cycle: Bool = false) {
+    guard !interactionLocked(), !presetIDs.isEmpty else { return }
+    let current = leadSelection.flatMap { presetIDs.firstIndex(of: $0) } ?? -1
+    let next = current + offset
+    let index = cycle ? (next + presetIDs.count) % presetIDs.count : min(max(next, 0), presetIDs.count - 1)
+    selectPreset(presetIDs[index])
+  }
+
   private(set) var leadHistoryItem: HistoryItemDecorator? {
     didSet {
       guard oldValue?.id != leadHistoryItem?.id else { return }
@@ -68,7 +108,7 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   var hoverSelectionWhileKeyboardNavigating: UUID?
   var isKeyboardNavigating: Bool = true {
     didSet {
-      if !isKeyboardNavigating && !isMultiSelectInProgress,
+      if !interactionLocked() && !isKeyboardNavigating && !isMultiSelectInProgress,
          let hoverSelection = hoverSelectionWhileKeyboardNavigating {
         hoverSelectionWhileKeyboardNavigating = nil
         select(id: hoverSelection)
@@ -83,6 +123,8 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func select(id: UUID) {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { selectPreset(id); return }
     if let item = history.items.first(where: { $0.id == id }) {
       select(item: item, footerItem: nil)
     } else if let item = footer.items.first(where: { $0.id == id }) {
@@ -100,6 +142,7 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func addToSelection(item: HistoryItemDecorator) {
+    guard isHistoryScope, !interactionLocked() else { return }
     var newSelectionState = selection
 
     if item.isSelected {
@@ -115,6 +158,7 @@ class NavigationManager { // swiftlint:disable:this type_body_length
     withTransaction(Transaction()) {
       selection = newSelectionState
       leadHistoryItem = item
+      target = .history(item.id)
       scrollTarget = leadSelection
     }
   }
@@ -124,6 +168,7 @@ class NavigationManager { // swiftlint:disable:this type_body_length
     to toItem: HistoryItemDecorator,
     isRange: Bool
   ) {
+    guard isHistoryScope, !interactionLocked() else { return }
     var newSelectionState = selection
 
     if isRange {
@@ -145,14 +190,18 @@ class NavigationManager { // swiftlint:disable:this type_body_length
     withTransaction(Transaction()) {
       selection = newSelectionState
       leadHistoryItem = toItem
+      target = .history(toItem.id)
       scrollTarget = leadSelection
     }
   }
 
   func selectWithoutScrolling(id: UUID) {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { selectPreset(id); return }
     if let stack = history.pasteStack,
        stack.id == id {
       selectWithoutScrolling(item: nil, footerItem: nil)
+      target = .stack(stack.id)
     } else if let item = history.items.first(where: { $0.id == id }) {
       if !isMultiSelectInProgress {
         selectWithoutScrolling(item: item, footerItem: nil)
@@ -168,6 +217,7 @@ class NavigationManager { // swiftlint:disable:this type_body_length
     item: HistoryItemDecorator? = nil,
     footerItem: FooterItem? = nil
   ) {
+    guard isHistoryScope, !interactionLocked() else { return }
     if let item = item {
       selectInHistory(item)
     } else if let footerItem = footerItem {
@@ -176,16 +226,19 @@ class NavigationManager { // swiftlint:disable:this type_body_length
       leadHistoryItem = nil
       selection = .init()
       footer.selectedItem = nil
+      target = nil
     }
   }
 
   private func selectInHistory(_ item: HistoryItemDecorator) {
+    target = .history(item.id)
     leadHistoryItem = item
     selection = .init(items: [item])
     footer.selectedItem = nil
   }
 
   private func selectInFooter(_ item: FooterItem) {
+    target = .footer(item.id)
     leadHistoryItem = nil
     if !isMultiSelectInProgress {
       selection = .init()
@@ -212,6 +265,8 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func highlightFirst() {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { selectPreset(presetIDs.first); return }
     if let item = history.firstVisibleItem {
       selectFromKeyboardNavigation(item: item)
     } else {
@@ -220,13 +275,15 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func highlightPrevious() {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { movePreset(-1); return }
     guard let lead = leadSelection else { return }
 
     if let historyItem = history.firstVisibleItem(where: { $0.id == lead }) {
       if let nextItem = history.visibleItem(before: historyItem) {
         selectFromKeyboardNavigation(item: nextItem)
-      } else if history.pasteStack != nil {
-        selectWithoutScrolling(item: nil)
+      } else if let stack = history.pasteStack {
+        selectWithoutScrolling(id: stack.id)
       } else {
         highlightFirst()
       }
@@ -240,6 +297,8 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func highlightNext(allowCycle: Bool = false) {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { movePreset(1, cycle: allowCycle); return }
     guard let lead = leadSelection else { return }
 
     if leadSelection == history.pasteStack?.id {
@@ -268,6 +327,8 @@ class NavigationManager { // swiftlint:disable:this type_body_length
   }
 
   func highlightLast() {
+    guard !interactionLocked() else { return }
+    if !isHistoryScope { selectPreset(presetIDs.last); return }
     guard let lead = leadSelection else { return }
 
     if let historyItem = history.firstVisibleItem(where: { $0.id == lead }) {

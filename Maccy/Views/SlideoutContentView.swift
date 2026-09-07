@@ -5,7 +5,17 @@ struct SlideoutContentView: View {
 
   var body: some View {
     VStack {
-      ToolbarView()
+      if let result = appState.presetResults.first(where: { appState.navigator.target == .preset($0.id) }),
+         appState.scope != .history {
+        HStack {
+          Spacer()
+          Button("Edit") { appState.beginEditPreset(result.id) }
+          Button("Delete", role: .destructive) { appState.requestDelete(.preset(result.id)) }
+        }
+        PresetPreviewView(draft: result.draft)
+      } else {
+        ToolbarView()
+      }
 
       if let item = appState.navigator.leadHistoryItem {
         PreviewItemView(item: item)

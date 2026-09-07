@@ -23,3 +23,93 @@
 "history_item_image_accessibility_label_no_app" = "Image, %dx%d";
 "history_item_image_accessibility_generic" = "Image";
 "toolbar_remove_paste_stack_action" = "Stop paste stack";
+
+"History" = "History";
+
+"Ungrouped" = "Ungrouped";
+
+"New group" = "New group";
+
+"Group name" = "Group name";
+
+"Delete group" = "Delete group";
+
+"Add manually" = "Add manually";
+
+"Add text" = "Add text";
+
+"Import files…" = "Import files…";
+
+"Add content" = "Add content";
+
+"Edit content" = "Edit content";
+
+"Add text or files to this group." = "Add text or files to this group.";
+
+"No matching content." = "No matching content.";
+
+"Group" = "Group";
+
+"Edit" = "Edit";
+
+"Delete" = "Delete";
+
+"Save" = "Save";
+
+"Cancel" = "Cancel";
+
+"Discard changes" = "Discard changes";
+
+"Dismiss" = "Dismiss";
+
+"Manage preset" = "Manage preset";
+
+"Image preset" = "Image preset";
+
+"Saved content" = "Saved content";
+
+
+
+"Importing files…" = "Importing files…";
+
+"Cancel import" = "Cancel import";
+
+"Save changes before leaving?" = "Save changes before leaving?";
+
+"Only Copy" = "Only Copy";
+
+"Open Settings" = "Open Settings";
+
+"Drag history items onto a group to save." = "Drag history items onto a group to save.";
+
+"↑↓ Select" = "↑↓ Select";
+
+"↩ Copy" = "↩ Copy";
+
+"⌥↩ Paste" = "⌥↩ Paste";
+
+"Esc Close" = "Esc Close";
+
+"↩ Paste" = "↩ Paste";
+
+"⌥↩ Copy" = "⌥↩ Copy";
+
+"Enter a group name." = "Enter a group name.";
+
+"Add content before saving." = "Add content before saving.";
+
+"This group no longer exists." = "This group no longer exists.";
+
+"This preset no longer exists." = "This preset no longer exists.";
+
+"Choose regular files, not folders, packages or symbolic links." = "Choose regular files, not folders, packages or symbolic links.";
+
+"The saved attachment is unavailable." = "The saved attachment is unavailable.";
+
+"Allow Accessibility access to paste. You can still copy." = "Allow Accessibility access to paste. You can still copy.";
+
+"The target application changed or is unavailable. Reopen Maccy from the intended application, or only copy." = "The target application changed or is unavailable. Reopen Maccy from the intended application, or only copy.";
+
+"The target application changed or is unavailable. Nothing was pasted." = "The target application changed or is unavailable. Nothing was pasted.";
+
+"Cancelling import…" = "Cancelling import…";

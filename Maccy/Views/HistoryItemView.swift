@@ -31,13 +31,14 @@ struct HistoryItemView: View {
   }
 
   private func performSelect() {
+    guard appState.scope == .history, !appState.interactionLocked else { return }
     if NSEvent.modifierFlags.contains(.command) && appState.multiSelectionEnabled {
       appState.navigator.addToSelection(item: item)
     } else {
       let flags = NSEvent.ModifierFlags.currentModifierFlags
-      Task {
-        appState.history.select(item, flags: flags)
-      }
+      appState.navigator.select(item: item)
+      guard let request = appState.captureSend(flags: flags) else { return }
+      Task { @MainActor in appState.send(request) }
     }
   }
 
@@ -59,13 +60,18 @@ struct HistoryItemView: View {
     }
     .accessibilityIdentifier("copy-history-item")
     .buttonAction(performSelect)
+    .overlay { HistoryDragSource(itemID: item.id, title: item.title, onClick: performSelect) }
     .onAppear {
       item.ensureThumbnailImage()
     }
     .accessibilityAction(named: Text(item.isPinned ? "history_item_unpin_action" : "history_item_pin_action")) {
+      guard !appState.interactionLocked, appState.scope == .history else { return }
+      appState.suspendSending()
       appState.history.togglePin(item)
     }
     .accessibilityAction(named: Text("history_item_delete_action")) {
+      guard !appState.interactionLocked, appState.scope == .history else { return }
+      appState.suspendSending()
       appState.history.delete(item)
     }
   }

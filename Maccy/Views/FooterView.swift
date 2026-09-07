@@ -31,6 +31,7 @@ struct FooterView: View {
           .invisible(!showClearAll)
       }
       .onChange(of: modifierFlags.flags) {
+        guard appState.scope == .history, !appState.interactionLocked else { return }
         if clearAllModifiersPressed {
           showClear = false
           showClearAll = true

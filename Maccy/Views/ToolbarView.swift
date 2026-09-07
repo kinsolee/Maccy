@@ -114,7 +114,8 @@ struct ToolbarView: View {
 
         if selectedImageItem != nil {
           ToolbarButton {
-            guard let selectedImageText else { return }
+            guard appState.scope == .history, !appState.interactionLocked, let selectedImageText else { return }
+            appState.suspendSending()
             Clipboard.shared.copyInMaccy(selectedImageText)
           } label: {
             Image(systemName: "text.viewfinder")

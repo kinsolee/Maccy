@@ -14,16 +14,22 @@ extension Defaults.Keys {
 #if DEBUG
   // UI Tests bundle preferences
   static let testingSuiteName = "\(Bundle.main.bundleIdentifier ?? "org.p0deje.Maccy").uitests"
+    + (AppDelegate.isUnitTesting ? ".\(UUID().uuidString)" : "")
 
   // When UI tests run with the `enable-testing` argument, window and pin
   // preferences are stored in a separate xcuitest bundle
-  private static let preferencesSuite: UserDefaults = AppDelegate.isTesting
-    ? (UserDefaults(suiteName: testingSuiteName) ?? .standard)
-    : .standard
+  private static let preferencesSuite: UserDefaults = {
+    guard AppDelegate.isTesting else { return .standard }
+    guard let suite = UserDefaults(suiteName: testingSuiteName) else {
+      fatalError("Cannot create isolated testing preferences.")
+    }
+    return suite
+  }()
 #else
   private static let preferencesSuite: UserDefaults = .standard
 #endif
 
+  static let lastPresetScope = Key<String>("lastPresetScope", default: "history", suite: preferencesSuite)
   static let clearOnQuit = Key<Bool>("clearOnQuit", default: false, suite: preferencesSuite)
   static let clearSystemClipboard = Key<Bool>("clearSystemClipboard", default: false, suite: preferencesSuite)
   static let clipboardCheckInterval = Key<Double>("clipboardCheckInterval", default: 0.5, suite: preferencesSuite)

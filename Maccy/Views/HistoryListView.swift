@@ -117,6 +117,7 @@ struct HistoryListView: View {
           }
         }
         .onChange(of: scenePhase) {
+          guard appState.scope == .history, !appState.interactionLocked else { return }
           if scenePhase == .active {
             searchFocused = true
             appState.navigator.isKeyboardNavigating = true
@@ -138,7 +139,7 @@ struct HistoryListView: View {
                 try? await Task.sleep(for: .milliseconds(10))
                 guard !Task.isCancelled else { return }
 
-                if appState.popup.needsResize {
+                if appState.popup.needsResize, appState.scope == .history, !appState.interactionLocked {
                   appState.popup.resize(height: geo.size.height)
                 }
               }

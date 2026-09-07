@@ -12,39 +12,36 @@ struct HeaderView: View {
   }
 
   var body: some View {
-    HStack(alignment: .top, spacing: 0) {
-      HStack(alignment: .center, spacing: 0) {
-        ListHeaderView(
-          searchFocused: $searchFocused,
-          searchQuery: $appState.history.searchQuery
-        )
-        .padding(.horizontal, Popup.horizontalPadding)
-
-        ToolbarButton {
-          controller.togglePreview()
-        } label: {
-          Image(
-            systemName: previewPlacement == .right
-              ? "sidebar.left" : "sidebar.right"
-          )
+    VStack(spacing: 0) {
+      PresetGroupBar()
+      HStack(spacing: 8) {
+        if appState.searchVisible {
+          ListHeaderView(searchFocused: $searchFocused, searchQuery: $appState.searchQuery)
+            .disabled(appState.interactionLocked)
         }
-        .shortcutKeyHelp(
-          name: .togglePreview,
-          key: controller.state.isOpen ? "ClosePreview" : "OpenPreview",
-          tableName: "PreviewItemView",
-          replacementKey: "previewKey"
-        )
-        .padding(.trailing, Popup.horizontalPadding)
+        Spacer(minLength: 0)
+        Menu {
+          Button("Add text") { appState.beginNewPreset() }
+          Button("Import files…") { appState.chooseFiles() }
+          if let id = appState.scope.groupID {
+            Divider()
+            Button("Delete group", role: .destructive) { appState.requestDelete(.group(id)) }
+          }
+        } label: { Text("Add manually") } primaryAction: { appState.beginNewPreset() }
+          .fixedSize()
+          .disabled(appState.importInProgress || appState.activeDrag != nil)
+        ToolbarButton { controller.togglePreview() } label: {
+          Image(systemName: previewPlacement == .right ? "sidebar.left" : "sidebar.right")
+        }
+        .shortcutKeyHelp(name: .togglePreview,
+                         key: controller.state.isOpen ? "ClosePreview" : "OpenPreview",
+                         tableName: "PreviewItemView", replacementKey: "previewKey")
+        .disabled(appState.interactionLocked)
       }
-      .opacity(appState.searchVisible ? 1 : 0)
-      .accessibilityHidden(!appState.searchVisible)
-      .layoutPriority(1)
+      .padding(.horizontal, 14)
+      .padding(.bottom, 8)
+      Divider()
     }
-    .padding(.top, Popup.verticalPadding)
-    .padding(.horizontal, 10)
-    .animation(.default.speed(3), value: appState.navigator.leadSelection)
-    .background(.clear)
-    .frame(maxHeight: !appState.searchVisible ? 0 : nil, alignment: .top)
     .readHeight(appState, into: \.popup.headerHeight)
   }
 }

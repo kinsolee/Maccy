@@ -24,6 +24,7 @@ class History: ItemsContainer { // swiftlint:disable:this type_body_length
       throttler.throttle { [self] in
         updateItems(search.search(string: searchQuery, within: all))
 
+        guard AppState.shared.scope == .history, !AppState.shared.interactionLocked else { return }
         if searchQuery.isEmpty {
           AppState.shared.navigator.select(item: unpinnedItems.first)
         } else {
@@ -325,43 +326,29 @@ class History: ItemsContainer { // swiftlint:disable:this type_body_length
     item.cleanupImages()
   }
 
+  @discardableResult
   @MainActor
-  func select(_ item: HistoryItemDecorator?, flags modifierFlags: NSEvent.ModifierFlags) {
-    guard let item else {
-      return
+  func select(_ item: HistoryItemDecorator?, flags modifierFlags: NSEvent.ModifierFlags,
+              pasteTarget: PasteTarget? = nil) -> Bool {
+    guard !AppState.shared.interactionLocked, let item else { return false }
+    let action = modifierFlags.isEmpty
+      ? (Defaults[.pasteByDefault] ? (Defaults[.removeFormattingByDefault] ? HistoryItemAction.pasteWithoutFormatting : .paste) : .copy)
+      : HistoryItemAction(modifierFlags)
+    guard action != .unknown else { return false }
+    AppState.shared.popup.close()
+    Clipboard.shared.copy(item.item, removeFormatting: action == .pasteWithoutFormatting
+      || (modifierFlags.isEmpty && Defaults[.removeFormattingByDefault]))
+    var succeeded = true
+    if action == .paste || action == .pasteWithoutFormatting {
+      succeeded = Clipboard.shared.paste(onlyIf: { pasteTarget?.isCurrent() ?? true })
     }
-
-    if modifierFlags.isEmpty {
-      AppState.shared.popup.close()
-      Clipboard.shared.copy(item.item, removeFormatting: Defaults[.removeFormattingByDefault])
-      if Defaults[.pasteByDefault] {
-        Clipboard.shared.paste()
-      }
-    } else {
-      switch HistoryItemAction(modifierFlags) {
-      case .copy:
-        AppState.shared.popup.close()
-        Clipboard.shared.copy(item.item)
-      case .paste:
-        AppState.shared.popup.close()
-        Clipboard.shared.copy(item.item)
-        Clipboard.shared.paste()
-      case .pasteWithoutFormatting:
-        AppState.shared.popup.close()
-        Clipboard.shared.copy(item.item, removeFormatting: true)
-        Clipboard.shared.paste()
-      case .unknown:
-        return
-      }
-    }
-
-    Task {
-      searchQuery = ""
-    }
+    Task { searchQuery = "" }
+    return succeeded
   }
 
   @MainActor
-  func startPasteStack(selection: inout Selection<HistoryItemDecorator>, flags modifierFlags: NSEvent.ModifierFlags) {
+  func startPasteStack(selection: inout Selection<HistoryItemDecorator>, flags modifierFlags: NSEvent.ModifierFlags,
+                       pasteTarget: PasteTarget?) {
     guard AppState.shared.multiSelectionEnabled else { return }
     guard let item = selection.first else { return }
     PasteStack.initializeIfNeeded()
@@ -386,7 +373,7 @@ class History: ItemsContainer { // swiftlint:disable:this type_body_length
       case .pasteWithoutFormatting:
         AppState.shared.popup.close()
         Clipboard.shared.copy(item.item, removeFormatting: true)
-        Clipboard.shared.paste()
+        Clipboard.shared.paste(onlyIf: { pasteTarget?.isCurrent() == true })
       case .unknown:
         return
       }
@@ -420,7 +407,10 @@ class History: ItemsContainer { // swiftlint:disable:this type_body_length
 
     logger.info("Copying \(item.item.title) from PasteStack. \(stack.items.count) items remaining in stack.")
 
-    Task {
+    let generation = AppState.shared.sendGeneration
+    Task { @MainActor in
+      guard self.pasteStack === stack, self.pasteStack?.items.first == item,
+            !AppState.shared.interactionLocked, AppState.shared.sendGeneration == generation else { return }
       if stack.modifierFlags.isEmpty {
         await Clipboard.shared.copy(item.item, removeFormatting: Defaults[.removeFormattingByDefault])
       } else {
@@ -488,7 +478,7 @@ class History: ItemsContainer { // swiftlint:disable:this type_body_length
   private func updateItems(_ newItems: [Search.SearchResult]) {
     items = newItems.map { result in
       let item = result.object
-      item.highlight(searchQuery, result.ranges)
+      item.highlight(searchQuery, result.ranges, text: result.text)
 
       return item
     }

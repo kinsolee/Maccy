@@ -17,11 +17,46 @@ class AppState: Sendable {
   var navigator: NavigationManager
   var preview: SlideoutController
 
+  var presetLibrary: PresetLibrary?
+  var scope: PresetScope = .history
+  var presetQuery = ""
+  var presetResults: [PresetResult] = []
+  var editor: PresetEditor?
+  var newGroupName: String?
+  var errorMessage: String?
+  var showUnsavedPrompt = false
+  var importInProgress = false
+  var activeDrag: PresetDrag?
+  var sendProblem: PopupSendProblem?
+  var sendGeneration: UInt64 = 0
+  var sessionOpen = false
+  @ObservationIgnored var pendingChange: (() -> Void)?
+  @ObservationIgnored var importTask: Task<Void, Never>?
+  @ObservationIgnored var pasteTarget: PasteTarget?
+
+  var interactionLocked: Bool {
+    editor != nil || newGroupName != nil || showUnsavedPrompt
+      || importInProgress || activeDrag != nil || sendProblem != nil
+  }
+
+  @MainActor
+  var searchQuery: String {
+    get { scope == .history ? history.searchQuery : presetQuery }
+    set {
+      invalidatePendingSend()
+      if scope == .history { history.searchQuery = newValue } else {
+        presetQuery = newValue
+        refreshPresetResults()
+      }
+    }
+  }
+
+  @MainActor
   var searchVisible: Bool {
     if !Defaults[.showSearch] { return false }
     switch Defaults[.searchVisibility] {
     case .always: return true
-    case .duringSearch: return !history.searchQuery.isEmpty
+    case .duringSearch: return !searchQuery.isEmpty
     }
   }
 
@@ -35,7 +70,8 @@ class AppState: Sendable {
   private let about = About()
   private var settingsWindowController: SettingsWindowController?
 
-  init(history: History, footer: Footer) {
+  init(history: History, footer: Footer, presetLibrary: PresetLibrary? = nil) {
+    self.presetLibrary = presetLibrary
     self.history = history
     self.footer = footer
     popup = Popup()
@@ -49,32 +85,20 @@ class AppState: Sendable {
       })
     preview.contentWidth = Defaults[.windowSize].width
     preview.slideoutWidth = Defaults[.previewWidth]
+    navigator.selectionDidChange = { [weak self] in self?.invalidatePendingSend() }
+    navigator.interactionLocked = { [weak self] in self?.interactionLocked ?? true }
   }
 
   @MainActor
   func select(flags modifierFlags: NSEvent.ModifierFlags) {
-    if !navigator.selection.isEmpty {
-      if navigator.isMultiSelectInProgress {
-        navigator.isManualMultiSelect = false
-        history.startPasteStack(selection: &navigator.selection, flags: modifierFlags)
-      } else {
-        history.select(navigator.selection.first, flags: modifierFlags)
-      }
-    } else if let item = footer.selectedItem {
-      // TODO: Use item.suppressConfirmation, but it's not updated!
-      if item.confirmation != nil, Defaults[.suppressClearAlert] == false {
-        item.showConfirmation = true
-      } else {
-        item.action()
-      }
-    } else {
-      Clipboard.shared.copyInMaccy(history.searchQuery)
-      history.searchQuery = ""
-    }
+    guard let request = captureSend(flags: modifierFlags) else { return }
+    send(request)
   }
 
   @MainActor
   func togglePin() {
+    guard scope == .history, !interactionLocked else { return }
+    invalidatePendingSend()
     withTransaction(Transaction()) {
       navigator.selection.forEach { _, item in
         history.togglePin(item)
@@ -90,6 +114,10 @@ class AppState: Sendable {
 
   @MainActor
   func deleteSelection() {
+    guard !interactionLocked else { return }
+    if case .preset(let id) = navigator.target { requestDelete(.preset(id)); return }
+    guard scope == .history else { return }
+    invalidatePendingSend()
     guard let leadItem = navigator.leadHistoryItem else { return }
     let nextUnselectedItem = history.visibleItems.nearest(to: leadItem) { !$0.isSelected }
 
