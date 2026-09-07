@@ -1,0 +1,131 @@
+schema_version: 1.0.0
+revision: 2
+scope: maccy-grouped-presets
+architecture_style: existing-native-macos-application
+quality_attributes:
+- name: data-integrity
+  priority: 1
+  rationale: 预设必须独立于历史生命周期。
+  measurable_signal: 清理历史、删除分组及失败保存后重启的保留行为符合 ADR-001。
+- name: safe-interaction
+  priority: 1
+  rationale: 拖拽与管理操作不能发送剪贴板内容。
+  measurable_signal: 管理、拖拽和取消场景的剪贴板写入与模拟粘贴次数均为零。
+- name: search-correctness
+  priority: 2
+  rationale: 无标题预设必须按内容找到且正确显示命中。
+  measurable_signal: 长正文尾部和 Unicode 命中可见，高亮源与搜索快照一致。
+components:
+- id: popup
+  responsibility: 扩展现有 FloatingPanel、ContentView、导航和搜索；维护分组、查询、当前目标与管理交互。
+  owns_data:
+  - current-scope
+  - current-selection
+  - search-snapshot
+  public_interfaces:
+  - show-picker
+  - select-scope
+  - save-history-drop
+- id: history
+  responsibility: 保留现有历史采集、清理、固定项和历史发送语义；提供按值捕获的原始内容。
+  owns_data:
+  - HistoryItem
+  - HistoryItemContent
+  public_interfaces:
+  - snapshot-content
+  - select-history
+- id: preset-library
+  responsibility: 专用 ModelContext 统一管理分组、预设及独占附件；显式保存、失败回滚、文件完整导入。
+  owns_data:
+  - PresetGroup
+  - Preset
+  - PresetContent
+  - preset-attachments
+  public_interfaces:
+  - save-preset
+  - delete-preset
+  - create-group
+  - delete-group
+  - read-presets
+- id: storage
+  responsibility: 复用现有 ModelContainer 和数据库路径，注册独立预设模型并验证旧存储兼容性。
+  owns_data:
+  - Storage.sqlite
+  public_interfaces:
+  - model-container
+- id: clipboard
+  responsibility: 复用现有类型化剪贴板写入和粘贴事件能力；内容管理不得通过发送入口实现。
+  owns_data: []
+  public_interfaces:
+  - copy-payload
+  - paste
+external_boundaries:
+- id: macos-pasteboard
+  responsibility: 系统剪贴板与辅助功能权限；写入成功不等于接收方已粘贴。
+- id: target-application
+  responsibility: 用户实际目标应用，接收文本、图片或文件并提供端到端验收证据。
+- id: local-filesystem
+  responsibility: 经用户选择授权的源文件和应用私有附件副本。
+dependency_rules:
+- source: popup
+  target: history
+  policy: allow
+  rationale: 历史范围复用现有历史能力。
+- source: popup
+  target: preset-library
+  policy: allow
+  rationale: 预设的查询和管理统一通过其所有者。
+- source: popup
+  target: clipboard
+  policy: allow
+  rationale: 仅明确选择复制或粘贴时发送预设。
+- source: history
+  target: storage
+  policy: allow
+  rationale: 保持既有历史持久化。
+- source: history
+  target: clipboard
+  policy: allow
+  rationale: 保持既有历史发送语义。
+- source: preset-library
+  target: storage
+  policy: allow
+  rationale: 同一容器提供专用预设上下文。
+- source: preset-library
+  target: local-filesystem
+  policy: allow
+  rationale: 完整导入与读取独占文件副本。
+- source: preset-library
+  target: clipboard
+  policy: deny
+  rationale: 预设管理本身不能发送剪贴板内容。
+- source: history
+  target: preset-library
+  policy: deny
+  rationale: 历史清理和去重不能控制预设生命周期。
+- source: clipboard
+  target: macos-pasteboard
+  policy: allow
+  rationale: 复用系统类型化剪贴板接口。
+- source: clipboard
+  target: target-application
+  policy: allow
+  rationale: 在目标焦点与权限有效时发送粘贴事件。
+required_practices:
+- 预设内容独立于 HistoryItemContent；同一容器内使用专用、关闭自动保存的预设上下文，显式保存与失败回滚。
+- 分组删除解除关系并保留内容；历史清理与去重不修改预设。
+- 搜索完整正文；显示摘要、高亮范围与搜索结果使用同一文本快照，保留历史标签和已有图片 OCR 兼容。
+- 拖拽、编辑与新建分组期间暂停发送，并使先前排队的粘贴回调失效；保存管理不得写剪贴板。
+- 文件完整复制、落位并成功保存模型后才显示成功；删除记录不删除原文件，已交给剪贴板的副本保守保留。
+prohibited_practices:
+- 新增独立管理窗口、第二个数据库、通用 Provider 或无真实必要的新依赖。
+- 为发送预设而临时插入 HistoryItem，或把截图、单元测试、模拟事件当作目标应用粘贴完成的证据。
+- 在 UI 视觉目标未选择前开始应用编码；未经明确要求提交或推送代码。
+decision_ids:
+- ADR-001
+unresolved_questions:
+- id: Q-001
+  question: 以最近一轮 UI 1、2、3 中哪一张作为视觉实现目标？
+  decision_impact: 已选 UI 1，作为原生 macOS 实现及视觉验收目标。
+  critical: true
+  answer: 用户于 2026-09-05 23:07:25 +08:00 明确选择最近一轮 UI 1（exec-36429f12-7630-487c-b34d-9de120a56b50.png）。
