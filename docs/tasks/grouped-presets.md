@@ -141,3 +141,15 @@ GUI候选增加临时DEBUG阶段记录，正式源码无日志；签名和原指
 - 教训记录:本轮曾用合成鼠标事件(CUA/CGEvent)定位拖放,干扰用户真实鼠标且 CUA 窗口绑定会令悬浮面板失焦自毁;GUI 验收一律由用户真人执行,自动化仅用 shell/AX 无副作用读回。
 - 生产 Maccy、生产历史库与采集偏好未修改。本检查点后提交分支并合并 master(不推送远端)。
 
+## 交付检查点二(2026-09-07,用户验收后四项调整)
+
+用户确认拖放可用后提出四项问题,已全部实施:
+
+1. **删除后不再强制跳选**:`refreshPresetResults(autoselect:)` 参数化;删除预设后清空选中而非自动选中第一项。顺带修复拖动移动后同样被 `selectPreset` 的 interactionLocked 守卫吞掉的问题(`drop()` 在刷新前先清 `activeDrag`)。
+2. **预设跨分组拖动**:`HistoryDragSource` 泛化为 `.history/.preset` 两种源;预设行右侧新增拖动把手(≡,悬停显示),拖到其他分组标签即**移动**(重父级,`PresetLibrary.movePreset`);拖到"未分组"即移出分组。`canDropHistory/dropHistory` 更名 `canDrop/drop` 并按源类型分派。
+3. **搜索框移至分组栏上方,全局搜索**:HeaderView 顺序调整;非空查询跨所有分组搜索,结果带所属分组名标签,清空查询回到当前分组列表;`send()` 移除"预设必须属于当前分组"守卫,全局搜索结果可直接发送。
+4. **点击仅选中预览,修饰键+点击才发送**:预设行普通点击只选中并触发预览自动展开(`startAutoOpen`);按住 ⌘/⌥ 等修饰键点击按 `HistoryItemAction` 语义复制/粘贴。底部图例新增 "Click Preview" 与对应修饰键提示。历史行行为不变(原 Maccy 语义)。
+
+回归:全量单次 **116 passed / 0 failed / 0 skipped**(113 原有 + 3 新增:`testNewGroupsLeadTheTabBar`、`testDeletingPresetDoesNotForceSelectAnotherRow`、`testPresetDragMovesGroupsAndSearchReachesAllGroups`)。动画用例的历史偶发失败定位为断言与窗口服务器帧应用时序的竞争(产品路径已是同步),断言改为帧稳定轮询后全量连续 3 轮通过。QA 应用已更新重启。已合并 master(不推送)。
+
+

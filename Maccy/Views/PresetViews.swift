@@ -125,10 +125,25 @@ private struct PresetRowView: View {
       Button {
         guard !appState.interactionLocked else { return }
         appState.navigator.selectPreset(result.id)
-        appState.select(flags: .currentModifierFlags)
+        // A plain click only selects for previewing; sending requires a modifier key.
+        let flags = NSEvent.ModifierFlags.currentModifierFlags
+        if HistoryItemAction(flags) == .unknown {
+          appState.preview.startAutoOpen()
+        } else {
+          appState.select(flags: flags)
+        }
       } label: {
         HStack(spacing: 12) {
           PresetContentLabel(draft: result.draft, match: result.match)
+          if let groupName = result.groupName {
+            Text(groupName)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+              .padding(.horizontal, 6)
+              .padding(.vertical, 2)
+              .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+          }
           Spacer(minLength: 8)
           if index < 9 {
             let shortcuts = KeyShortcut.create(character: String(index + 1))
@@ -148,6 +163,15 @@ private struct PresetRowView: View {
       .buttonStyle(.plain)
       .accessibilityLabel(result.draft.searchableText.isEmpty ? String(localized: "Image preset") : result.draft.searchableText)
       .accessibilityAddTraits(selected ? .isSelected : [])
+
+      // Dedicated grip: dragging from here moves the preset to another group.
+      Image(systemName: "line.3.horizontal")
+        .foregroundStyle(.secondary)
+        .frame(width: 20, height: 26)
+        .opacity(hovered || selected ? 1 : 0)
+        .overlay { HistoryDragSource(item: .preset(id: result.id, title: result.draft.searchableText), onClick: {}) }
+        .accessibilityLabel(Text("Drag to move to another group"))
+        .padding(.leading, 2)
 
       // Sibling controls: management clicks cannot bubble into the content's send button.
       Menu {
@@ -321,6 +345,8 @@ struct PresetFooterView: View {
       Divider()
       HStack(spacing: 18) {
         Text("↑↓ Select")
+        Text("Click Preview")
+        Text(Defaults[.pasteByDefault] ? "⌘Click Paste" : "⌥Click Paste")
         Text(Defaults[.pasteByDefault] ? "↩ Paste" : "↩ Copy")
         Text(Defaults[.pasteByDefault] ? "⌥↩ Copy" : "⌥↩ Paste")
         Text("Esc Close")

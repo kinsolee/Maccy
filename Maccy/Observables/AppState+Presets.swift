@@ -35,6 +35,8 @@ struct PresetResult: Identifiable {
   let id: UUID
   let draft: PresetDraft
   let match: Search.Match
+  // Set only while searching across all groups.
+  var groupName: String?
 }
 
 enum PresetDeletion {
@@ -46,6 +48,8 @@ struct PresetDrag {
   let token: UUID
   let sourceID: UUID
   let draft: PresetDraft
+  // Non-nil when the dragged row is an existing preset (move between groups).
+  var presetID: UUID?
   var consumed = false
 }
 
@@ -134,19 +138,27 @@ extension AppState {
   }
 
   @MainActor
-  func refreshPresetResults(select id: UUID? = nil) {
+  func refreshPresetResults(select id: UUID? = nil, autoselect: Bool = true) {
     guard scope != .history else { return }
     let search = Search()
+    // Empty query lists the current group; a non-empty query searches every group.
+    let globalSearch = !presetQuery.isEmpty
     presetResults = (presetLibrary?.presets ?? []).compactMap { preset in
-      guard preset.group?.id == scope.groupID else { return nil }
+      if !globalSearch, preset.group?.id != scope.groupID { return nil }
       let draft = PresetDraft(preset: preset)
       guard let match = search.match(presetQuery, in: draft.searchableText) else { return nil }
-      return PresetResult(id: preset.id, draft: draft, match: match)
+      return PresetResult(id: preset.id, draft: draft, match: match,
+                          groupName: globalSearch ? preset.group?.name : nil)
     }
     navigator.presetIDs = presetResults.map(\.id)
     let preferred = id ?? navigator.leadSelection
-    navigator.selectPreset(preferred.flatMap { navigator.presetIDs.contains($0) ? $0 : nil }
-      ?? navigator.presetIDs.first)
+    if let valid = preferred.flatMap({ navigator.presetIDs.contains($0) ? $0 : nil }) {
+      navigator.selectPreset(valid)
+    } else if autoselect {
+      navigator.selectPreset(navigator.presetIDs.first)
+    } else {
+      navigator.selectPreset(nil)
+    }
     popup.needsResize = true
   }
 
@@ -240,7 +252,7 @@ extension AppState {
         self.clearManagement()
         if let id = self.scope.groupID, !library.groups.contains(where: { $0.id == id }) {
           self.applyScope(.history, remember: true)
-        } else { self.refreshPresetResults() }
+        } else { self.refreshPresetResults(autoselect: false) }
       } catch { self.errorMessage = error.localizedDescription }
     }
   }
@@ -300,6 +312,18 @@ extension AppState {
     return drag.token
   }
 
+  /// Dragging a preset row re-parents it onto the dropped group.
+  @MainActor
+  func beginPresetDrag(id: UUID) -> UUID? {
+    guard scope != .history, !interactionLocked,
+          let preset = presetLibrary?.presets.first(where: { $0.id == id }),
+          preset.group?.id == scope.groupID else { return nil }
+    suspendSending()
+    let drag = PresetDrag(token: UUID(), sourceID: id, draft: PresetDraft(preset: preset), presetID: id)
+    activeDrag = drag
+    return drag.token
+  }
+
   func endHistoryDrag(token: UUID) {
     guard activeDrag?.token == token else { return }
     activeDrag = nil
@@ -307,18 +331,36 @@ extension AppState {
   }
 
   @MainActor
-  func canDropHistory(token: UUID, groupID: UUID?) -> Bool {
-    guard let drag = activeDrag, drag.token == token, !drag.consumed,
-          history.all.contains(where: { $0.id == drag.sourceID }), !importInProgress else { return false }
+  func canDrop(token: UUID, groupID: UUID?) -> Bool {
+    guard let drag = activeDrag, drag.token == token, !drag.consumed, !importInProgress else { return false }
+    if drag.presetID != nil {
+      guard let preset = presetLibrary?.presets.first(where: { $0.id == drag.presetID }),
+            preset.group?.id == scope.groupID else { return false }
+    } else {
+      guard history.all.contains(where: { $0.id == drag.sourceID }) else { return false }
+    }
     return groupID == nil || presetLibrary?.groups.contains(where: { $0.id == groupID }) == true
   }
 
   @MainActor
   @discardableResult
-  func dropHistory(token: UUID, groupID: UUID?) -> Bool {
-    guard canDropHistory(token: token, groupID: groupID), var drag = activeDrag else { return false }
+  func drop(token: UUID, groupID: UUID?) -> Bool {
+    guard canDrop(token: token, groupID: groupID), var drag = activeDrag else { return false }
     drag.consumed = true
     activeDrag = drag
+    if let presetID = drag.presetID {
+      do {
+        try presetLibrary?.movePreset(id: presetID, to: groupID)
+        // Clear the finished drag before refreshing: the selection update must
+        // not be blocked by the drag's own interaction lock.
+        activeDrag = nil
+        refreshPresetResults(autoselect: false)
+      } catch {
+        errorMessage = error.localizedDescription
+        return false
+      }
+      return true
+    }
     var draft = drag.draft
     draft.groupID = groupID
     startImport(draft, sourceID: drag.sourceID)
@@ -376,7 +418,7 @@ extension AppState {
       }
     case .preset(let id):
       guard scope != .history, let library = presetLibrary,
-            let preset = library.presets.first(where: { $0.id == id }), preset.group?.id == scope.groupID else { return }
+            let preset = library.presets.first(where: { $0.id == id }) else { return }
       do {
         let contents = try preset.orderedContents.map { content -> Clipboard.Content in
           if let path = content.relativeFilePath {

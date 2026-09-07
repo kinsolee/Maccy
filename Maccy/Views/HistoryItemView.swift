@@ -60,7 +60,7 @@ struct HistoryItemView: View {
     }
     .accessibilityIdentifier("copy-history-item")
     .buttonAction(performSelect)
-    .overlay { HistoryDragSource(itemID: item.id, title: item.title, onClick: performSelect) }
+    .overlay { HistoryDragSource(item: .history(id: item.id, title: item.title), onClick: performSelect) }
     .onAppear {
       item.ensureThumbnailImage()
     }
