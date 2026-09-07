@@ -120,19 +120,21 @@ private struct PresetRowView: View {
 
   private var selected: Bool { appState.navigator.target == .preset(result.id) }
 
+  // A plain click only selects for previewing; sending requires a modifier key.
+  private func performSelect() {
+    guard !appState.interactionLocked else { return }
+    appState.navigator.selectPreset(result.id)
+    let flags = NSEvent.ModifierFlags.currentModifierFlags
+    if HistoryItemAction(flags) == .unknown {
+      appState.preview.startAutoOpen()
+    } else {
+      appState.select(flags: flags)
+    }
+  }
+
   var body: some View {
     HStack(spacing: 0) {
-      Button {
-        guard !appState.interactionLocked else { return }
-        appState.navigator.selectPreset(result.id)
-        // A plain click only selects for previewing; sending requires a modifier key.
-        let flags = NSEvent.ModifierFlags.currentModifierFlags
-        if HistoryItemAction(flags) == .unknown {
-          appState.preview.startAutoOpen()
-        } else {
-          appState.select(flags: flags)
-        }
-      } label: {
+      Button(action: performSelect) {
         HStack(spacing: 12) {
           PresetContentLabel(draft: result.draft, match: result.match)
           if let groupName = result.groupName {
@@ -161,17 +163,10 @@ private struct PresetRowView: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      // The whole row drags, matching history rows; dropping on a group moves the preset.
+      .overlay { HistoryDragSource(item: .preset(id: result.id, title: result.draft.searchableText), onClick: performSelect) }
       .accessibilityLabel(result.draft.searchableText.isEmpty ? String(localized: "Image preset") : result.draft.searchableText)
       .accessibilityAddTraits(selected ? .isSelected : [])
-
-      // Dedicated grip: dragging from here moves the preset to another group.
-      Image(systemName: "line.3.horizontal")
-        .foregroundStyle(.secondary)
-        .frame(width: 20, height: 26)
-        .opacity(hovered || selected ? 1 : 0)
-        .overlay { HistoryDragSource(item: .preset(id: result.id, title: result.draft.searchableText), onClick: {}) }
-        .accessibilityLabel(Text("Drag to move to another group"))
-        .padding(.leading, 2)
 
       // Sibling controls: management clicks cannot bubble into the content's send button.
       Menu {

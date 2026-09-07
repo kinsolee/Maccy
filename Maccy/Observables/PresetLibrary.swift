@@ -43,7 +43,8 @@ class PresetLibrary {
     saveContext = save
     // Newest groups lead the tab bar, right after the fixed History tab.
     groups = try context.fetch(FetchDescriptor<PresetGroup>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
-    presets = try context.fetch(FetchDescriptor<Preset>(sortBy: [SortDescriptor(\.savedAt)]))
+    // Newest presets lead their group: fresh drops and moved-in items land on top.
+    presets = try context.fetch(FetchDescriptor<Preset>(sortBy: [SortDescriptor(\.savedAt, order: .reverse)]))
   }
 
   @discardableResult
@@ -106,11 +107,13 @@ class PresetLibrary {
   }
 
   /// Moving between groups re-parents the record; `nil` makes it ungrouped.
+  /// The moved preset is bumped to the top of its new group.
   func movePreset(id: UUID, to groupID: UUID?) throws {
     guard let preset = presets.first(where: { $0.id == id }) else { throw LibraryError.missingPreset }
     let group = groupID.flatMap { id in groups.first(where: { $0.id == id }) }
     guard groupID == nil || group != nil else { throw LibraryError.missingGroup }
     preset.group = group
+    preset.savedAt = Date.now
     try persistChanges()
   }
 
@@ -217,7 +220,7 @@ class PresetLibrary {
     do {
       context.processPendingChanges()
       let nextGroups = try context.fetch(FetchDescriptor<PresetGroup>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
-      let nextPresets = try context.fetch(FetchDescriptor<Preset>(sortBy: [SortDescriptor(\.savedAt)]))
+      let nextPresets = try context.fetch(FetchDescriptor<Preset>(sortBy: [SortDescriptor(\.savedAt, order: .reverse)]))
       try saveContext(context)
       groups = nextGroups
       presets = nextPresets
