@@ -128,6 +128,13 @@ final class PresetPickerTests: XCTestCase {
       popup.resize(height: 390)
       try await Task.sleep(for: .milliseconds(600))
       XCTAssertEqual(preview.state, .closed)
+      // Window-server frame application can lag the synchronous setFrame calls on a
+      // loaded host; settle on the final frame instead of a racing snapshot.
+      var settledWidth = panel.frame.width
+      for _ in 0..<25 where abs(settledWidth - 450) > 1 {
+        try await Task.sleep(for: .milliseconds(20))
+        settledWidth = panel.frame.width
+      }
       XCTAssertEqual(panel.frame.width, 450, accuracy: 1)
       XCTAssertEqual(panel.frame.height, 390, accuracy: 1)
       XCTAssertEqual(panel.frame.maxY, 516, accuracy: 1)
@@ -265,7 +272,7 @@ final class PresetPickerTests: XCTestCase {
     state.navigator.hoverSelectionWhileKeyboardNavigating = UUID()
     state.endHistoryDrag(token: token)
     XCTAssertNil(state.navigator.hoverSelectionWhileKeyboardNavigating)
-    XCTAssertFalse(state.canDropHistory(token: token, groupID: group))
+    XCTAssertFalse(state.canDrop(token: token, groupID: group))
     state.send(queued)
     XCTAssertEqual(Clipboard.shared.pasteboard.changeCount, before)
     XCTAssertTrue(library.presets.count == 1)
@@ -286,10 +293,10 @@ final class PresetPickerTests: XCTestCase {
     let before = Clipboard.shared.pasteboard.changeCount
     let token = try XCTUnwrap(state.beginHistoryDrag(id: item.id))
     model.contents.first?.value = Data("edited after capture".utf8)
-    XCTAssertFalse(state.dropHistory(token: UUID(), groupID: group))
-    XCTAssertFalse(state.dropHistory(token: token, groupID: UUID()))
-    XCTAssertTrue(state.dropHistory(token: token, groupID: group))
-    XCTAssertFalse(state.dropHistory(token: token, groupID: group))
+    XCTAssertFalse(state.drop(token: UUID(), groupID: group))
+    XCTAssertFalse(state.drop(token: token, groupID: UUID()))
+    XCTAssertTrue(state.drop(token: token, groupID: group))
+    XCTAssertFalse(state.drop(token: token, groupID: group))
     state.endHistoryDrag(token: token)
     await state.importTask?.value
     XCTAssertEqual(library.presets.count, 1)
@@ -300,9 +307,58 @@ final class PresetPickerTests: XCTestCase {
 
     let expired = try XCTUnwrap(state.beginHistoryDrag(id: item.id))
     state.history.all = []
-    XCTAssertFalse(state.dropHistory(token: expired, groupID: group))
+    XCTAssertFalse(state.drop(token: expired, groupID: group))
     state.endHistoryDrag(token: expired)
     XCTAssertEqual(library.presets.count, 1)
+  }
+
+  func testDeletingPresetDoesNotForceSelectAnotherRow() throws {
+    let library = try library()
+    let group = try library.createGroup(name: "G")
+    let first = try library.save(PresetDraft(text: "one", groupID: group))
+    let second = try library.save(PresetDraft(text: "two", groupID: group))
+    let state = AppState(history: History(), footer: Footer(), presetLibrary: library)
+    state.sessionOpen = true
+    state.chooseScope(.group(group))
+    XCTAssertEqual(state.navigator.target, .preset(first))
+    let before = Clipboard.shared.pasteboard.changeCount
+    state.requestDelete(.preset(first))
+    XCTAssertEqual(state.presetResults.map(\.id), [second])
+    XCTAssertNil(state.navigator.target)
+    XCTAssertEqual(Clipboard.shared.pasteboard.changeCount, before)
+  }
+
+  func testPresetDragMovesGroupsAndSearchReachesAllGroups() throws {
+    let library = try library()
+    let groupA = try library.createGroup(name: "A")
+    let groupB = try library.createGroup(name: "B")
+    let alpha = try library.save(PresetDraft(text: "alpha", groupID: groupA))
+    let beta = try library.save(PresetDraft(text: "beta", groupID: groupB))
+    let state = AppState(history: History(), footer: Footer(), presetLibrary: library)
+    state.sessionOpen = true
+    state.chooseScope(.group(groupA))
+    XCTAssertEqual(state.presetResults.map(\.id), [alpha])
+
+    // A non-empty query searches every group and tags results with their group.
+    state.searchQuery = "beta"
+    XCTAssertEqual(state.presetResults.map(\.id), [beta])
+    XCTAssertEqual(state.presetResults.first?.groupName, "B")
+    state.searchQuery = ""
+    XCTAssertEqual(state.presetResults.map(\.id), [alpha])
+
+    // Dragging a preset grip re-parents it onto the dropped group; the clipboard is untouched.
+    let before = Clipboard.shared.pasteboard.changeCount
+    let token = try XCTUnwrap(state.beginPresetDrag(id: alpha))
+    XCTAssertTrue(state.drop(token: token, groupID: groupB))
+    XCTAssertFalse(state.drop(token: token, groupID: groupA))
+    XCTAssertEqual(library.presets.first(where: { $0.id == alpha })?.group?.id, groupB)
+    XCTAssertEqual(state.scope, .group(groupA))
+    XCTAssertNil(state.navigator.target)
+    XCTAssertEqual(Clipboard.shared.pasteboard.changeCount, before)
+    // The moved preset no longer belongs to the active group, so it cannot be dragged from here.
+    XCTAssertNil(state.beginPresetDrag(id: alpha))
+    state.endPopupSession()
+    XCTAssertNil(state.beginPresetDrag(id: alpha))
   }
 }
 

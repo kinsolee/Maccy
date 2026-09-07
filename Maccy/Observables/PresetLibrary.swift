@@ -105,6 +105,15 @@ class PresetLibrary {
     try persistChanges()
   }
 
+  /// Moving between groups re-parents the record; `nil` makes it ungrouped.
+  func movePreset(id: UUID, to groupID: UUID?) throws {
+    guard let preset = presets.first(where: { $0.id == id }) else { throw LibraryError.missingPreset }
+    let group = groupID.flatMap { id in groups.first(where: { $0.id == id }) }
+    guard groupID == nil || group != nil else { throw LibraryError.missingGroup }
+    preset.group = group
+    try persistChanges()
+  }
+
   func attachmentURL(for relativePath: String) throws -> URL {
     let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
     guard !relativePath.hasPrefix("/"), !components.isEmpty,

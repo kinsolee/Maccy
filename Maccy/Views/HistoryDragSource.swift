@@ -3,21 +3,34 @@ import SwiftUI
 
 // AppKit supplies an authoritative end callback even when Escape or an outside drop cancels a drag.
 struct HistoryDragSource: NSViewRepresentable {
-  let itemID: UUID
-  let title: String
+  enum Item {
+    // History rows save a copy on drop; preset rows move to the dropped group.
+    case history(id: UUID, title: String)
+    case preset(id: UUID, title: String)
+  }
+  let item: Item
   let onClick: () -> Void
   static let pasteboardType = NSPasteboard.PasteboardType("org.kinsolee.Maccy.history-drag")
 
   func makeNSView(context: Context) -> DragView { DragView() }
 
   func updateNSView(_ view: DragView, context: Context) {
-    view.itemID = itemID
-    view.label = title
+    switch item {
+    case .history(let id, let title):
+      view.historyID = id
+      view.presetID = nil
+      view.label = title
+    case .preset(let id, let title):
+      view.presetID = id
+      view.historyID = nil
+      view.label = title
+    }
     view.onClick = onClick
   }
 
   final class DragView: NSView, NSDraggingSource {
-    var itemID: UUID?
+    var historyID: UUID?
+    var presetID: UUID?
     var label = ""
     var onClick: (() -> Void)?
     private(set) var token: UUID?
@@ -33,10 +46,18 @@ struct HistoryDragSource: NSViewRepresentable {
     }
 
     override func mouseDragged(with event: NSEvent) {
-      guard token == nil, let downEvent, let itemID,
+      guard token == nil, let downEvent,
             hypot(event.locationInWindow.x - downEvent.locationInWindow.x,
-                  event.locationInWindow.y - downEvent.locationInWindow.y) >= 4,
-            let token = AppState.shared.beginHistoryDrag(id: itemID) else { return }
+                  event.locationInWindow.y - downEvent.locationInWindow.y) >= 4 else { return }
+      let newToken: UUID?
+      if let historyID {
+        newToken = AppState.shared.beginHistoryDrag(id: historyID)
+      } else if let presetID {
+        newToken = AppState.shared.beginPresetDrag(id: presetID)
+      } else {
+        newToken = nil
+      }
+      guard let token = newToken else { return }
       self.token = token
       self.downEvent = nil
       let item = NSPasteboardItem()
@@ -99,7 +120,7 @@ struct PresetGroupDropTarget: NSViewRepresentable {
       guard let source = sender.draggingSource as? HistoryDragSource.DragView,
             let value = sender.draggingPasteboard.string(forType: HistoryDragSource.pasteboardType),
             let token = UUID(uuidString: value), token == source.token,
-            AppState.shared.canDropHistory(token: token, groupID: groupID) else { return nil }
+            AppState.shared.canDrop(token: token, groupID: groupID) else { return nil }
       return token
     }
 
@@ -116,7 +137,7 @@ struct PresetGroupDropTarget: NSViewRepresentable {
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
       setTargeted?(false)
       guard let token = validatedToken(sender) else { return false }
-      return AppState.shared.dropHistory(token: token, groupID: groupID)
+      return AppState.shared.drop(token: token, groupID: groupID)
     }
   }
 }

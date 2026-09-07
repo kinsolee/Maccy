@@ -13,7 +13,7 @@ struct HeaderView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      PresetGroupBar()
+      // Search sits above the group bar so a query searches every group.
       HStack(spacing: 8) {
         if appState.searchVisible {
           ListHeaderView(searchFocused: $searchFocused, searchQuery: $appState.searchQuery)
@@ -39,7 +39,9 @@ struct HeaderView: View {
         .disabled(appState.interactionLocked)
       }
       .padding(.horizontal, 14)
+      .padding(.top, 10)
       .padding(.bottom, 8)
+      PresetGroupBar()
       Divider()
     }
     .readHeight(appState, into: \.popup.headerHeight)
