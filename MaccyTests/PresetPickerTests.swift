@@ -62,7 +62,7 @@ final class PresetPickerTests: XCTestCase {
 
   func testPreviewAnimationAndHeightChangesKeepOneWindowFrame() async throws {
     let state = AppState.shared
-    let saved = (state.appDelegate, state.popup, state.preview, state.navigator, Defaults[.windowSize])
+    let saved = (state.appDelegate, state.popup, state.preview, state.navigator, Defaults[.windowSize], Defaults[.previewOpen])
     let delegate = AppDelegate()
     let popup = Popup()
     let preview = SlideoutController(onContentResize: { _ in }, onSlideoutResize: { _ in })
@@ -90,6 +90,7 @@ final class PresetPickerTests: XCTestCase {
       state.preview = saved.2
       state.navigator = saved.3
       Defaults[.windowSize] = saved.4
+      Defaults[.previewOpen] = saved.5
     }
     XCTAssertFalse(panel.isVisible)
     for placement in [SlideoutPlacement.left, .right] {
@@ -110,7 +111,9 @@ final class PresetPickerTests: XCTestCase {
 
       // Reverse the ordering: a height update immediately followed by a preview animation.
       popup.resize(height: 240)
+      XCTAssertFalse(Defaults[.previewOpen])
       preview.togglePreview()
+      XCTAssertTrue(Defaults[.previewOpen])
       popup.resize(height: 330)
       try await Task.sleep(for: .milliseconds(600))
       XCTAssertEqual(preview.state, .open)
@@ -120,10 +123,12 @@ final class PresetPickerTests: XCTestCase {
 
       // Rapid close/open/close also has a late height update, like switching into the editor.
       preview.togglePreview()
-      try await Task.sleep(for: .milliseconds(50))
+      // Sub-50ms frame churn gets merged by the window server on offscreen panels,
+      // so keep the gaps at human speed; the product paths stay synchronous.
+      try await Task.sleep(for: .milliseconds(150))
       popup.resize(height: 310)
       preview.togglePreview()
-      try await Task.sleep(for: .milliseconds(50))
+      try await Task.sleep(for: .milliseconds(150))
       preview.togglePreview()
       popup.resize(height: 390)
       try await Task.sleep(for: .milliseconds(600))
@@ -312,6 +317,33 @@ final class PresetPickerTests: XCTestCase {
     XCTAssertEqual(library.presets.count, 1)
   }
 
+  func testHistoryDropLandsOnTopOfTheGroup() async throws {
+    let library = try library()
+    let group = try library.createGroup(name: "group")
+    let state = AppState(history: History(), footer: Footer(), presetLibrary: library)
+    state.sessionOpen = true
+    let older = HistoryItem(contents: [HistoryItemContent(type: "public.utf8-plain-text", value: Data("older".utf8))])
+    let newer = HistoryItem(contents: [HistoryItemContent(type: "public.utf8-plain-text", value: Data("newer".utf8))])
+    let olderItem = HistoryItemDecorator(older)
+    let newerItem = HistoryItemDecorator(newer)
+    state.history.all = [olderItem]
+    state.navigator.select(item: olderItem)
+    let firstToken = try XCTUnwrap(state.beginHistoryDrag(id: olderItem.id))
+    XCTAssertTrue(state.drop(token: firstToken, groupID: group))
+    state.endHistoryDrag(token: firstToken)
+    await state.importTask?.value
+
+    state.history.all = [olderItem, newerItem]
+    state.navigator.select(item: newerItem)
+    let secondToken = try XCTUnwrap(state.beginHistoryDrag(id: newerItem.id))
+    XCTAssertTrue(state.drop(token: secondToken, groupID: group))
+    state.endHistoryDrag(token: secondToken)
+    await state.importTask?.value
+
+    XCTAssertEqual(library.presets.count, 2)
+    XCTAssertEqual(library.presets.first?.text, "newer")
+  }
+
   func testDeletingPresetDoesNotForceSelectAnotherRow() throws {
     let library = try library()
     let group = try library.createGroup(name: "G")
@@ -320,10 +352,11 @@ final class PresetPickerTests: XCTestCase {
     let state = AppState(history: History(), footer: Footer(), presetLibrary: library)
     state.sessionOpen = true
     state.chooseScope(.group(group))
-    XCTAssertEqual(state.navigator.target, .preset(first))
+    // Newest first: "two" was saved after "one".
+    XCTAssertEqual(state.navigator.target, .preset(second))
     let before = Clipboard.shared.pasteboard.changeCount
-    state.requestDelete(.preset(first))
-    XCTAssertEqual(state.presetResults.map(\.id), [second])
+    state.requestDelete(.preset(second))
+    XCTAssertEqual(state.presetResults.map(\.id), [first])
     XCTAssertNil(state.navigator.target)
     XCTAssertEqual(Clipboard.shared.pasteboard.changeCount, before)
   }
@@ -355,9 +388,18 @@ final class PresetPickerTests: XCTestCase {
     XCTAssertEqual(state.scope, .group(groupA))
     XCTAssertNil(state.navigator.target)
     XCTAssertEqual(Clipboard.shared.pasteboard.changeCount, before)
-    // The moved preset no longer belongs to the active group, so it cannot be dragged from here.
-    XCTAssertNil(state.beginPresetDrag(id: alpha))
-    state.endPopupSession()
+
+    // The moved item lands on top of its new group.
+    state.chooseScope(.group(groupB))
+    XCTAssertEqual(state.presetResults.map(\.id), [alpha, beta])
+
+    // Rows from another group (e.g. global search results) stay draggable.
+    let secondToken = try XCTUnwrap(state.beginPresetDrag(id: alpha))
+    XCTAssertTrue(state.drop(token: secondToken, groupID: groupA))
+    XCTAssertEqual(library.presets.first(where: { $0.id == alpha })?.group?.id, groupA)
+
+    state.chooseScope(.history)
+    // History scope never starts preset drags.
     XCTAssertNil(state.beginPresetDrag(id: alpha))
   }
 }

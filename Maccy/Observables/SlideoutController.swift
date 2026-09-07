@@ -149,6 +149,8 @@ class SlideoutController {
       window.setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
     }
     state = target
+    // Restore the last manual preview state on the next popup session.
+    Defaults[.previewOpen] = target == .open
   }
 
   func startResize(mode: ResizingMode) {

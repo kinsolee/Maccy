@@ -87,6 +87,12 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
     makeKey()
     isPresented = true
 
+    // Reopen the preview in the state the last session left it.
+    let preview = AppState.shared.preview
+    if Defaults[.previewOpen], !preview.state.isOpen, !AppState.shared.interactionLocked {
+      preview.togglePreview()
+    }
+
     if popupPosition == .statusItem {
       DispatchQueue.main.async {
         self.statusBarButton?.isHighlighted = true

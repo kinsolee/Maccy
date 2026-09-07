@@ -312,12 +312,12 @@ extension AppState {
     return drag.token
   }
 
-  /// Dragging a preset row re-parents it onto the dropped group.
+  /// Dragging a preset row re-parents it onto the dropped group. Rows found by
+  /// a global search stay draggable even though they belong to another group.
   @MainActor
   func beginPresetDrag(id: UUID) -> UUID? {
     guard scope != .history, !interactionLocked,
-          let preset = presetLibrary?.presets.first(where: { $0.id == id }),
-          preset.group?.id == scope.groupID else { return nil }
+          let preset = presetLibrary?.presets.first(where: { $0.id == id }) else { return nil }
     suspendSending()
     let drag = PresetDrag(token: UUID(), sourceID: id, draft: PresetDraft(preset: preset), presetID: id)
     activeDrag = drag
@@ -334,8 +334,7 @@ extension AppState {
   func canDrop(token: UUID, groupID: UUID?) -> Bool {
     guard let drag = activeDrag, drag.token == token, !drag.consumed, !importInProgress else { return false }
     if drag.presetID != nil {
-      guard let preset = presetLibrary?.presets.first(where: { $0.id == drag.presetID }),
-            preset.group?.id == scope.groupID else { return false }
+      guard presetLibrary?.presets.contains(where: { $0.id == drag.presetID }) == true else { return false }
     } else {
       guard history.all.contains(where: { $0.id == drag.sourceID }) else { return false }
     }

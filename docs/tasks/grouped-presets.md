@@ -152,4 +152,14 @@ GUI候选增加临时DEBUG阶段记录，正式源码无日志；签名和原指
 
 回归:全量单次 **116 passed / 0 failed / 0 skipped**(113 原有 + 3 新增:`testNewGroupsLeadTheTabBar`、`testDeletingPresetDoesNotForceSelectAnotherRow`、`testPresetDragMovesGroupsAndSearchReachesAllGroups`)。动画用例的历史偶发失败定位为断言与窗口服务器帧应用时序的竞争(产品路径已是同步),断言改为帧稳定轮询后全量连续 3 轮通过。QA 应用已更新重启。已合并 master(不推送)。
 
+## 交付检查点三(2026-09-07,第二轮用户反馈四项)
+
+1. **面板出现在光标所在屏幕**:根因是前轮调试写入 QA 容器的偏好残留(`popupPosition=lastPosition`、`popupScreen=2`),已删除恢复默认 `.cursor`(产品逻辑本就按鼠标所在屏幕定位与约束)。
+2. **拖入/移动的条目置顶**:分组内预设改为 `savedAt` 倒序;历史拖入的新预设天然在顶部,跨组移动时 `movePreset` 更新 `savedAt` 使其落在顶部。
+3. **取消拖动把手,整行可拖**:预设行与历史行一致,整行覆盖 `HistoryDragSource`(点击语义不变:普通点击选中预览,修饰键点击发送);右侧省略号菜单保留。放宽 `beginPresetDrag`/`canDrop` 的分组限制,全局搜索结果跨组行也可拖动移动。
+4. **预览记住最后开关状态**:新增 `Defaults[.previewOpen]`,`togglePreview` 写入,面板 `open()` 时按上次状态恢复(未锁定时);默认关闭(首次行为不变)。
+
+回归:全量单次 **117 passed / 0 failed**(新增 `testHistoryDropLandsOnTopOfTheGroup`),连续两轮干净;HistoryItemTests 单独复跑 3/3(全量 run 1 曾有一次无关崩溃,复跑未现)。QA 应用已更新重启,调试偏好已清理。已合并 master(不推送)。
+
+
 
