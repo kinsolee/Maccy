@@ -42,9 +42,11 @@ struct ToolbarButton<Label: View>: View {
   var body: some View {
     Button(action: action) {
       label()
+        .font(.system(size: 13, weight: .medium))
+        .frame(width: 26, height: 26)
+        .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
-    .frame(height: 23)
+    .buttonStyle(BUIQuietButtonStyle(color: BUI.ink2))
     .onHover(perform: { inside in
       if let window = appState.appDelegate?.panel {
         window.isMovableByWindowBackground = !inside

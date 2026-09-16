@@ -22,8 +22,9 @@ struct KeyboardShortcutView: View {
       }
       Text(character).frame(width: 12, alignment: .center)
     }
+    .font(.system(size: 12, weight: .regular).monospaced())
     .lineLimit(1)
-    .opacity(character.isEmpty ? 0 : 0.7)
+    .opacity(character.isEmpty ? 0 : 1)
   }
 }
 

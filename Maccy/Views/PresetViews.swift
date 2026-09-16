@@ -11,7 +11,7 @@ struct PresetGroupBar: View {
     HStack(spacing: 6) {
       groupButton(String(localized: "History"), scope: .history)
       ScrollView(.horizontal) {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
           ForEach(appState.presetLibrary?.groups ?? []) { group in
             PresetGroupTab(name: group.name, scope: .group(group.id))
           }
@@ -21,10 +21,14 @@ struct PresetGroupBar: View {
         }
       }
       .scrollIndicators(.hidden)
-      Button(action: appState.beginNewGroup) { Image(systemName: "plus").frame(width: 24, height: 23) }
-        .buttonStyle(.plain)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-        .accessibilityLabel(Text("New group"))
+      Button(action: appState.beginNewGroup) {
+        Image(systemName: "plus")
+          .font(.system(size: 12, weight: .medium))
+          .frame(width: 26, height: 24)
+      }
+      .buttonStyle(BUIQuietButtonStyle(color: BUI.ink3))
+      .overlay(RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous).stroke(BUI.line, lineWidth: 1))
+      .accessibilityLabel(Text("New group"))
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 8)
@@ -32,12 +36,13 @@ struct PresetGroupBar: View {
 
   private func groupButton(_ name: String, scope: PresetScope) -> some View {
     Button { appState.chooseScope(scope) } label: {
-      Text(name).lineLimit(1).padding(.horizontal, 12).padding(.vertical, 6)
-        .background(appState.scope == scope ? Color(nsColor: .controlBackgroundColor) : .secondary.opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(appState.scope == scope ? Color.secondary.opacity(0.4) : Color.clear))
+      Text(name)
+        .font(BUI.controlFont)
+        .lineLimit(1)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(BUIQuietButtonStyle(isActive: appState.scope == scope))
     .accessibilityAddTraits(appState.scope == scope ? .isSelected : [])
   }
 }
@@ -50,12 +55,17 @@ private struct PresetGroupTab: View {
 
   var body: some View {
     Button { appState.chooseScope(scope) } label: {
-      Text(name).lineLimit(1).padding(.horizontal, 14).padding(.vertical, 6)
-        .background(appState.scope == scope ? Color(nsColor: .controlBackgroundColor) : .secondary.opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(targeted ? Color.accentColor : .clear, lineWidth: 2))
+      Text(name)
+        .font(BUI.controlFont)
+        .lineLimit(1)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(BUIQuietButtonStyle(isActive: appState.scope == scope))
+    .overlay(
+      RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous)
+        .stroke(targeted ? BUI.accent : .clear, lineWidth: 2)
+    )
     .overlay { PresetGroupDropTarget(groupID: scope.groupID, onClick: { appState.chooseScope(scope) }, targeted: $targeted) }
     .accessibilityLabel(name)
     .accessibilityAddTraits(appState.scope == scope ? .isSelected : [])
@@ -75,14 +85,15 @@ struct PresetListView: View {
       ScrollView {
         LazyVStack(spacing: 0) {
           if appState.presetResults.isEmpty {
-            Text(appState.searchQuery.isEmpty ? "Add text or files to this group." : "No matching content.")
-              .foregroundStyle(.secondary)
-              .frame(maxWidth: .infinity, minHeight: 100)
+            BUIEmptyState(
+              icon: appState.searchQuery.isEmpty ? "tray" : "magnifyingglass",
+              title: appState.searchQuery.isEmpty ? "Add text or files to this group." : "No matching content."
+            )
           }
           ForEach(Array(appState.presetResults.enumerated()), id: \.element.id) { index, result in
             PresetRowView(result: result, index: index)
               .id(result.id)
-            Divider().padding(.horizontal, 8)
+            BUIHairline(color: BUI.lineSoft).padding(.horizontal, 8)
           }
         }
         .padding(.vertical, 6)
@@ -139,12 +150,12 @@ private struct PresetRowView: View {
           PresetContentLabel(draft: result.draft, match: result.match)
           if let groupName = result.groupName {
             Text(groupName)
-              .font(.caption)
-              .foregroundStyle(.secondary)
+              .font(.system(size: 11, weight: .medium))
+              .foregroundStyle(BUI.ink2)
               .lineLimit(1)
-              .padding(.horizontal, 6)
+              .padding(.horizontal, 7)
               .padding(.vertical, 2)
-              .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+              .background(BUI.inset, in: RoundedRectangle(cornerRadius: BUI.radiusChip, style: .continuous))
           }
           Spacer(minLength: 8)
           if index < 9 {
@@ -154,7 +165,7 @@ private struct PresetRowView: View {
                 if shortcut.isVisible(shortcuts, modifierFlags.flags) { KeyboardShortcutView(shortcut: shortcut) }
               }
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(selected ? BUI.accentInk : BUI.ink3)
           }
         }
         // Same row metrics as history items (ListItemView).
@@ -173,16 +184,24 @@ private struct PresetRowView: View {
       Menu {
         Button("Edit") { appState.beginEditPreset(result.id) }
         Button("Delete", role: .destructive) { appState.requestDelete(.preset(result.id)) }
-      } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
+      } label: {
+        Image(systemName: "ellipsis")
+          .font(.system(size: 12, weight: .medium))
+          .frame(width: 24, height: 24)
+          .contentShape(Rectangle())
+      }
       .menuStyle(.borderlessButton)
       .menuIndicator(.hidden)
+      .buttonStyle(.plain)
+      .foregroundStyle(BUI.ink3)
+      .background(hovered || selected ? BUI.hover : .clear, in: RoundedRectangle(cornerRadius: BUI.radiusChip, style: .continuous))
       .opacity(hovered || selected ? 1 : 0)
       .accessibilityLabel(Text("Manage preset"))
       .padding(.horizontal, 6)
     }
     // Match the history row's selection appearance.
-    .foregroundStyle(selected ? Color.white : .primary)
-    .background(selected ? Color.accentColor.opacity(0.8) : .white.opacity(0.001))
+    .foregroundStyle(selected ? BUI.ink : .primary)
+    .background(selected ? BUI.selectionFill : .white.opacity(0.001))
     .clipShape(RoundedRectangle(cornerRadius: Popup.cornerRadius))
     .padding(.horizontal, 4)
     .onHover { hovered = $0 }
@@ -260,43 +279,56 @@ struct PresetManagementView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       if let editor = appState.editor {
-        Text(editor.id == nil ? "Add content" : "Edit content").font(.headline)
+        Text(editor.id == nil ? "Add content" : "Edit content")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(BUI.ink)
         if editor.draft.isPlainText {
-          TextEditor(text: draftText).font(.body).focused($textFocused)
+          TextEditor(text: draftText).font(BUI.rowFont).focused($textFocused)
             .scrollContentBackground(.hidden)
-            .padding(6).background(.background.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+            .padding(8)
+            .background(BUI.surface, in: RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous).stroke(BUI.line, lineWidth: 1))
             .frame(height: 170)
         } else { PresetPreviewView(draft: editor.draft).frame(height: 170) }
         Picker("Group", selection: Binding(get: { appState.editor?.draft.groupID }, set: { appState.editor?.draft.groupID = $0 })) {
           Text("Ungrouped").tag(Optional<UUID>.none)
           ForEach(appState.presetLibrary?.groups ?? []) { group in Text(group.name).tag(Optional(group.id)) }
         }
+        .font(BUI.controlFont)
       } else if appState.newGroupName != nil {
-        Text("New group").font(.headline)
+        Text("New group")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(BUI.ink)
         TextField("Group name", text: Binding(get: { appState.newGroupName ?? "" }, set: { appState.newGroupName = $0 }))
           .focused($textFocused)
           .textFieldStyle(.roundedBorder)
           .onSubmit { appState.saveManagement() }
       } else if appState.importInProgress {
-        HStack { ProgressView().controlSize(.small); Text("Importing files…") }
+        HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Importing files…").font(BUI.controlFont).foregroundStyle(BUI.ink2) }
         Button("Cancel import") { appState.importTask?.cancel() }
+          .buttonStyle(BUISecondaryButtonStyle())
           .disabled(appState.importTask == nil)
       }
 
-      if let error = appState.errorMessage { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+      if let error = appState.errorMessage {
+        Text(error)
+          .font(BUI.rowFont)
+          .foregroundStyle(BUI.red)
+          .textSelection(.enabled)
+      }
 
       if appState.showUnsavedPrompt {
-        Text("Save changes before leaving?")
-        HStack {
-          Button("Save") { appState.saveManagement() }
-          Button("Discard changes", role: .destructive) { appState.discardManagement() }
-          Button("Cancel") { appState.cancelPendingChange() }
+        Text("Save changes before leaving?").font(BUI.rowFont).foregroundStyle(BUI.ink)
+        HStack(spacing: 8) {
+          Button("Save") { appState.saveManagement() }.buttonStyle(BUIPrimaryButtonStyle())
+          Button("Discard changes", role: .destructive) { appState.discardManagement() }.buttonStyle(BUISecondaryButtonStyle())
+          Button("Cancel") { appState.cancelPendingChange() }.buttonStyle(BUISecondaryButtonStyle())
         }
       } else if !appState.importInProgress {
-        HStack {
+        HStack(spacing: 8) {
           Spacer()
-          Button("Cancel") { appState.requestChange {} }
-          Button("Save") { appState.saveManagement() }.buttonStyle(.borderedProminent)
+          Button("Cancel") { appState.requestChange {} }.buttonStyle(BUISecondaryButtonStyle())
+          Button("Save") { appState.saveManagement() }.buttonStyle(BUIPrimaryButtonStyle())
         }
       }
     }
@@ -316,20 +348,32 @@ struct PresetSendProblemView: View {
   var body: some View {
     if let problem = appState.sendProblem {
       VStack(alignment: .leading, spacing: 12) {
-        Text(problem.message)
-        HStack {
-          Button("Only Copy") { appState.onlyCopyPendingSend() }
+        Label {
+          Text(problem.message).font(BUI.rowFont).foregroundStyle(BUI.ink)
+        } icon: {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(BUI.orange)
+        }
+        HStack(spacing: 8) {
+          Button("Only Copy") { appState.onlyCopyPendingSend() }.buttonStyle(BUISecondaryButtonStyle())
           if problem.needsPermission {
             Button("Open Settings") {
               if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                 NSWorkspace.shared.open(url)
               }
             }
+            .buttonStyle(BUISecondaryButtonStyle())
           }
           Button("Cancel") { appState.sendProblem = nil; appState.invalidatePendingSend() }
+            .buttonStyle(BUISecondaryButtonStyle())
         }
       }
-      .padding(16)
+      .padding(14)
+      .background(RoundedRectangle(cornerRadius: BUI.radiusCard, style: .continuous).fill(BUI.orangeTint))
+      .overlay(RoundedRectangle(cornerRadius: BUI.radiusCard, style: .continuous).stroke(BUI.orange.opacity(0.35), lineWidth: 1))
+      .padding(.horizontal, 8)
+      .padding(.vertical, 6)
       .background { GeometryReader { geo in Color.clear.task { appState.popup.resize(height: geo.size.height) } } }
     }
   }
@@ -337,19 +381,34 @@ struct PresetSendProblemView: View {
 
 struct PresetFooterView: View {
   @Environment(AppState.self) private var appState
+
+  private func hint(_ label: String) -> some View {
+    Text(label)
+      .font(.system(size: 10.5, weight: .medium).monospaced())
+      .foregroundStyle(BUI.ink2)
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(BUI.inset, in: RoundedRectangle(cornerRadius: BUI.radiusChip, style: .continuous))
+  }
+
   var body: some View {
     VStack(spacing: 10) {
-      Text("Drag history items onto a group to save.").foregroundStyle(.secondary).font(.caption)
-      Divider()
-      HStack(spacing: 18) {
-        Text("↑↓ Select")
-        Text("Click Preview")
-        Text(Defaults[.pasteByDefault] ? "⌘Click Paste" : "⌥Click Paste")
-        Text(Defaults[.pasteByDefault] ? "↩ Paste" : "↩ Copy")
-        Text(Defaults[.pasteByDefault] ? "⌥↩ Copy" : "⌥↩ Paste")
-        Text("Esc Close")
+      BUIHairline(color: BUI.line)
+      HStack(spacing: 6) {
+        Text("Drag history items onto a group to save.")
+          .foregroundStyle(BUI.ink3)
+          .font(.system(size: 11))
         Spacer(minLength: 0)
-      }.font(.caption)
+      }
+      HStack(spacing: 6) {
+        hint("↑↓ Select")
+        hint("Click Preview")
+        hint(Defaults[.pasteByDefault] ? "⌘Click Paste" : "⌥Click Paste")
+        hint(Defaults[.pasteByDefault] ? "↩ Paste" : "↩ Copy")
+        hint(Defaults[.pasteByDefault] ? "⌥↩ Copy" : "⌥↩ Paste")
+        hint("Esc Close")
+        Spacer(minLength: 0)
+      }
     }
     .padding(.horizontal, 14).padding(.vertical, 10)
     .readHeight(appState, into: \.popup.footerHeight)

@@ -69,7 +69,7 @@ struct PreviewItemView: View {
 
       Spacer(minLength: 0)
 
-      Divider()
+      BUIHairline(color: BUI.line)
         .padding(.bottom)
 
       if let application = item.application {
@@ -81,6 +81,8 @@ struct PreviewItemView: View {
           )
           Text(application)
         }
+        .font(.system(size: 11))
+        .foregroundStyle(BUI.ink2)
       }
 
       if item.hasImage, let image = item.item.image {
@@ -88,24 +90,30 @@ struct PreviewItemView: View {
           Text("Dimensions", tableName: "PreviewItemView")
           Text("\(Int(image.pixelSize.width))×\(Int(image.pixelSize.height))")
         }
+        .font(.system(size: 11))
+        .foregroundStyle(BUI.ink2)
       }
 
-      HStack(spacing: 3) {
-        Text("FirstCopyTime", tableName: "PreviewItemView")
-        Text(item.item.firstCopiedAt, style: .date)
-        Text(item.item.firstCopiedAt, style: .time)
-      }
+      VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 3) {
+          Text("FirstCopyTime", tableName: "PreviewItemView")
+          Text(item.item.firstCopiedAt, style: .date)
+          Text(item.item.firstCopiedAt, style: .time)
+        }
 
-      HStack(spacing: 3) {
-        Text("LastCopyTime", tableName: "PreviewItemView")
-        Text(item.item.lastCopiedAt, style: .date)
-        Text(item.item.lastCopiedAt, style: .time)
-      }
+        HStack(spacing: 3) {
+          Text("LastCopyTime", tableName: "PreviewItemView")
+          Text(item.item.lastCopiedAt, style: .date)
+          Text(item.item.lastCopiedAt, style: .time)
+        }
 
-      HStack(spacing: 3) {
-        Text("NumberOfCopies", tableName: "PreviewItemView")
-        Text(String(item.item.numberOfCopies))
+        HStack(spacing: 3) {
+          Text("NumberOfCopies", tableName: "PreviewItemView")
+          Text(String(item.item.numberOfCopies))
+        }
       }
+      .font(.system(size: 11))
+      .foregroundStyle(BUI.ink2)
     }
     .controlSize(.small)
   }

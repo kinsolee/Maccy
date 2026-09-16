@@ -31,11 +31,30 @@ struct ContentView: View {
                 PresetManagementView()
               } else {
                 if let error = appState.errorMessage {
-                  HStack {
-                    Text(error).foregroundStyle(.red)
+                  HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                      .font(.system(size: 12, weight: .medium))
+                      .foregroundStyle(BUI.red)
+                    Text(error)
+                      .font(BUI.rowFont)
+                      .foregroundStyle(BUI.ink)
                     Spacer()
-                    Button("Dismiss") { appState.errorMessage = nil }
-                  }.padding(10)
+                    Button {
+                      appState.errorMessage = nil
+                    } label: {
+                      Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                        .foregroundStyle(BUI.ink3)
+                    }
+                    .buttonStyle(BUIQuietButtonStyle(color: BUI.ink3))
+                  }
+                  .padding(10)
+                  .background(RoundedRectangle(cornerRadius: BUI.radiusCard, style: .continuous).fill(BUI.redTint))
+                  .overlay(RoundedRectangle(cornerRadius: BUI.radiusCard, style: .continuous).stroke(BUI.red.opacity(0.35), lineWidth: 1))
+                  .padding(.horizontal, 8)
+                  .padding(.top, 6)
                 }
                 if appState.scope == .history {
                   HistoryListView(searchQuery: $appState.searchQuery, searchFocused: $searchFocused)

@@ -8,22 +8,26 @@ struct SearchFieldView: View {
 
   var body: some View {
     ZStack {
-      RoundedRectangle(cornerRadius: Popup.cornerRadius, style: .continuous)
-        .fill(Color.secondary)
-        .opacity(0.1)
-        .frame(height: 23)
+      RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous)
+        .fill(BUI.field)
 
-      HStack {
+      RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous)
+        .stroke(BUI.lineStrong, lineWidth: 1)
+
+      HStack(spacing: 0) {
         Image(systemName: "magnifyingglass")
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(BUI.ink3)
           .frame(width: 11, height: 11)
-          .padding(.leading, 5)
-          .opacity(0.8)
+          .padding(.leading, 8)
           .accessibilityHidden(true)
 
         TextField(placeholder, text: $query)
+          .font(BUI.rowFont)
           .disableAutocorrection(true)
           .lineLimit(1)
           .textFieldStyle(.plain)
+          .padding(.leading, 6)
           .onSubmit {
             appState.select(flags: .currentModifierFlags)
           }
@@ -33,15 +37,17 @@ struct SearchFieldView: View {
             query = ""
           } label: {
             Image(systemName: "xmark.circle.fill")
+              .font(.system(size: 12))
               .frame(width: 11, height: 11)
-              .padding(.trailing, 5)
+              .padding(.trailing, 8)
           }
           .buttonStyle(.plain)
-          .opacity(0.9)
+          .foregroundStyle(BUI.ink3)
           .accessibilityLabel(Text("search_clear_accessibility_label"))
         }
       }
     }
+    .frame(height: 26)
   }
 }
 

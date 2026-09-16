@@ -27,7 +27,22 @@ struct HeaderView: View {
             Divider()
             Button("Delete group", role: .destructive) { appState.requestDelete(.group(id)) }
           }
-        } label: { Text("Add manually") } primaryAction: { appState.beginNewPreset() }
+        } label: {
+          HStack(spacing: 4) {
+            Text("Add manually")
+            Image(systemName: "chevron.down")
+              .font(.system(size: 9, weight: .semibold))
+              .foregroundStyle(BUI.ink3)
+          }
+          .font(BUI.controlFont)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 5)
+          .background(BUI.surface, in: RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous))
+          .overlay(RoundedRectangle(cornerRadius: BUI.radiusControl, style: .continuous).stroke(BUI.line, lineWidth: 1))
+          .contentShape(Rectangle())
+        } primaryAction: { appState.beginNewPreset() }
+          .menuStyle(.borderlessButton)
+          .menuIndicator(.hidden)
           .fixedSize()
           .disabled(appState.importInProgress || appState.activeDrag != nil)
         ToolbarButton { controller.togglePreview() } label: {
@@ -42,7 +57,7 @@ struct HeaderView: View {
       .padding(.top, 10)
       .padding(.bottom, 8)
       PresetGroupBar()
-      Divider()
+      BUIHairline(color: BUI.line)
     }
     .readHeight(appState, into: \.popup.headerHeight)
   }

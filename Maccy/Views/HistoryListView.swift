@@ -46,21 +46,21 @@ struct HistoryListView: View {
   }
 
   private func topSeparator() -> some View {
-    Divider()
+    BUIHairline(color: BUI.line)
       .padding(.horizontal, Popup.horizontalSeparatorPadding)
       .padding(.top, Popup.verticalSeparatorPadding)
   }
 
   @ViewBuilder
   private func bottomSeparator() -> some View {
-    Divider()
+    BUIHairline(color: BUI.line)
       .padding(.horizontal, Popup.horizontalSeparatorPadding)
       .padding(.bottom, Popup.verticalSeparatorPadding)
   }
 
   @ViewBuilder
   private func separator() -> some View {
-    Divider()
+    BUIHairline(color: BUI.line)
       .padding(.horizontal, Popup.horizontalSeparatorPadding)
       .padding(.vertical, Popup.verticalSeparatorPadding)
   }

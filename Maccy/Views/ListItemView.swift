@@ -93,14 +93,14 @@ struct ListItemView<Title: View, ID: Hashable>: View {
       HStack(spacing: 5) {
         if let displaySelectionIndex {
           Text(displaySelectionIndex)
-            .font(.caption)
-            .frame(minWidth: 10, alignment: .center)
-            .padding(3)
+            .font(.system(size: 10, weight: .semibold).monospacedDigit())
+            .frame(minWidth: 16, alignment: .center)
+            .padding(.vertical, 2)
             .background(
-              Color.secondary.opacity(isSelected ? 0.5 : 0.8),
-              in: Capsule()
+              isSelected ? BUI.accent : BUI.accentTint,
+              in: RoundedRectangle(cornerRadius: BUI.radiusChip, style: .continuous)
             )
-            .foregroundStyle(Color.white)
+            .foregroundStyle(isSelected ? Color.white : BUI.accentInk)
             .accessibilityHidden(true)
         }
 
@@ -109,6 +109,7 @@ struct ListItemView<Title: View, ID: Hashable>: View {
             ForEach(shortcuts) { shortcut in
               let visible = shortcut.isVisible(shortcuts, modifierFlags.flags)
               KeyboardShortcutView(shortcut: shortcut)
+                .foregroundStyle(isSelected ? BUI.accentInk : BUI.ink3)
                 .opacity(visible ? 1 : 0)
                 .accessibilityHidden(true)
                 .frame(width: visible ? nil : 0)
@@ -121,10 +122,10 @@ struct ListItemView<Title: View, ID: Hashable>: View {
     .frame(minHeight: Popup.itemHeight)
     .id(id)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .foregroundStyle(isSelected ? Color.white : .primary)
+    .foregroundStyle(isSelected ? BUI.ink : .primary)
     // macOS 26 broke hovering if no background is present.
     // The slight opcaity white background is a workaround
-    .background(isSelected ? Color.accentColor.opacity(0.8) : .white.opacity(0.001))
+    .background(isSelected ? BUI.selectionFill : .white.opacity(0.001))
     .clipShape(selectionAppearance.rect(cornerRadius: Popup.cornerRadius))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text(accessibilityLabel))

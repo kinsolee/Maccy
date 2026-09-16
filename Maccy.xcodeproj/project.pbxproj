@@ -69,6 +69,7 @@
 		DA1969122C3F0DD200258481 /* HistoryItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1969112C3F0DD200258481 /* HistoryItemView.swift */; };
 		DA1969142C3F11D600258481 /* PreviewItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1969132C3F11D600258481 /* PreviewItemView.swift */; };
 		DA1969182C3F327500258481 /* SearchFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1969172C3F327500258481 /* SearchFieldView.swift */; };
+		2FBEA0F10000000000000003 /* BeautifulUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBEA0F10000000000000002 /* BeautifulUI.swift */; };
 		DA19691A2C3F369800258481 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1969192C3F369800258481 /* HeaderView.swift */; };
 		DA19691C2C3F3EAC00258481 /* Collection+Surrounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA19691B2C3F3EAC00258481 /* Collection+Surrounding.swift */; };
 		DA19691F2C3F5F0600258481 /* KeyHandlingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA19691E2C3F5F0600258481 /* KeyHandlingView.swift */; };
@@ -298,6 +299,7 @@
 		DA1969112C3F0DD200258481 /* HistoryItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItemView.swift; sourceTree = "<group>"; };
 		DA1969132C3F11D600258481 /* PreviewItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewItemView.swift; sourceTree = "<group>"; };
 		DA1969172C3F327500258481 /* SearchFieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchFieldView.swift; sourceTree = "<group>"; };
+		2FBEA0F10000000000000002 /* BeautifulUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeautifulUI.swift; sourceTree = "<group>"; };
 		DA1969192C3F369800258481 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
 		DA19691B2C3F3EAC00258481 /* Collection+Surrounding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Collection+Surrounding.swift"; sourceTree = "<group>"; };
 		DA19691E2C3F5F0600258481 /* KeyHandlingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyHandlingView.swift; sourceTree = "<group>"; };
@@ -737,6 +739,7 @@
 				DAA072D42C40AC52006DDFD2 /* HistoryListView.swift */,
 				2F0EC7882E7743D9003E2EA9 /* HoverSelectionModifier.swift */,
 				DA19690D2C3EEFA900258481 /* KeyboardShortcutView.swift */,
+				2FBEA0F10000000000000002 /* BeautifulUI.swift */,
 				DA19691E2C3F5F0600258481 /* KeyHandlingView.swift */,
 				2F9B42EE2F1A4948006548E5 /* ListHeaderView.swift */,
 				DAA072E82C42C6AA006DDFD2 /* ListItemTitleView.swift */,
@@ -1178,6 +1181,7 @@
 				DA13D7D92C1A223E00FA9E23 /* Get.swift in Sources */,
 				2FF2E94E2E774B5B0093D72C /* NavigationManager.swift in Sources */,
 				DA1969182C3F327500258481 /* SearchFieldView.swift in Sources */,
+				2FBEA0F10000000000000003 /* BeautifulUI.swift in Sources */,
 				DAE8F5D42C43262B00851CA9 /* Popup.swift in Sources */,
 				DA13D7DA2C1A223E00FA9E23 /* Clear.swift in Sources */,
 				DA13D7DB2C1A223E00FA9E23 /* Delete.swift in Sources */,

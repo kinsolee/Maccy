@@ -23,13 +23,9 @@ class Popup {
   static let horizontalPadding: CGFloat = 5
   static let minimumPreviewHeight: CGFloat = 150
 
-  // Radius used for items inset by the padding. Ensures they visually have the same curvature
-  // as the menu.
-  static let cornerRadius: CGFloat = if #available(macOS 26.0, *) {
-    7
-  } else {
-    4
-  }
+  // Radius used for items inset by the padding. Matches the design system's
+  // control radius so rows, chips, and fields share one curvature.
+  static let cornerRadius: CGFloat = 8
 
   static let itemHeight: CGFloat = if #available(macOS 26.0, *) {
     24
