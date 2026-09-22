@@ -382,7 +382,7 @@ struct PresetSendProblemView: View {
 struct PresetFooterView: View {
   @Environment(AppState.self) private var appState
 
-  private func hint(_ label: String) -> some View {
+  private func hint(_ label: LocalizedStringKey) -> some View {
     Text(label)
       .font(.system(size: 10.5, weight: .medium).monospaced())
       .foregroundStyle(BUI.ink2)
@@ -395,18 +395,24 @@ struct PresetFooterView: View {
     VStack(spacing: 10) {
       BUIHairline(color: BUI.line)
       HStack(spacing: 6) {
-        Text("Drag history items onto a group to save.")
+        Text("preset_drag_to_save_hint")
           .foregroundStyle(BUI.ink3)
           .font(.system(size: 11))
         Spacer(minLength: 0)
       }
       HStack(spacing: 6) {
-        hint("↑↓ Select")
-        hint("Click Preview")
-        hint(Defaults[.pasteByDefault] ? "⌘Click Paste" : "⌥Click Paste")
-        hint(Defaults[.pasteByDefault] ? "↩ Paste" : "↩ Copy")
-        hint(Defaults[.pasteByDefault] ? "⌥↩ Copy" : "⌥↩ Paste")
-        hint("Esc Close")
+        hint("preset_hint_select")
+        hint("preset_hint_preview")
+        if Defaults[.pasteByDefault] {
+          hint("preset_hint_cmd_click_paste")
+          hint("preset_hint_return_paste")
+          hint("preset_hint_alt_return_copy")
+        } else {
+          hint("preset_hint_alt_click_paste")
+          hint("preset_hint_return_copy")
+          hint("preset_hint_alt_return_paste")
+        }
+        hint("preset_hint_esc_close")
         Spacer(minLength: 0)
       }
     }

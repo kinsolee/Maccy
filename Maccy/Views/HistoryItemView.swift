@@ -60,6 +60,28 @@ struct HistoryItemView: View {
     }
     .accessibilityIdentifier("copy-history-item")
     .buttonAction(performSelect)
+    .contextMenu {
+      Button {
+        guard appState.scope == .history, !appState.interactionLocked else { return }
+        appState.suspendSending()
+        appState.history.togglePin(item)
+      } label: {
+        if item.isPinned {
+          Text("history_item_unpin_action")
+        } else {
+          Text("history_item_pin_action")
+        }
+      }
+      Button("history_item_delete_action", role: .destructive) {
+        guard appState.scope == .history, !appState.interactionLocked else { return }
+        appState.suspendSending()
+        if item.isSelected {
+          appState.deleteSelection()
+        } else {
+          appState.history.delete(item)
+        }
+      }
+    }
     .overlay { HistoryDragSource(item: .history(id: item.id, title: item.title), onClick: performSelect) }
     .onAppear {
       item.ensureThumbnailImage()

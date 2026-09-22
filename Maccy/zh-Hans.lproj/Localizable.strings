@@ -124,3 +124,14 @@
 "Click Preview" = "点击预览";
 "⌘Click Paste" = "⌘点击粘贴";
 "⌥Click Paste" = "⌥点击粘贴";
+
+"preset_drag_to_save_hint" = "把历史条目拖到分组即可保存。";
+"preset_hint_select" = "↑↓ 选择";
+"preset_hint_preview" = "点击预览";
+"preset_hint_cmd_click_paste" = "⌘点击粘贴";
+"preset_hint_alt_click_paste" = "⌥点击粘贴";
+"preset_hint_return_paste" = "↩ 粘贴";
+"preset_hint_return_copy" = "↩ 复制";
+"preset_hint_alt_return_copy" = "⌥↩ 复制";
+"preset_hint_alt_return_paste" = "⌥↩ 粘贴";
+"preset_hint_esc_close" = "Esc 关闭";

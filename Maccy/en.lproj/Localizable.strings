@@ -117,3 +117,14 @@
 "Click Preview" = "Click Preview";
 "⌘Click Paste" = "⌘Click Paste";
 "⌥Click Paste" = "⌥Click Paste";
+
+"preset_drag_to_save_hint" = "Drag history items onto a group to save.";
+"preset_hint_select" = "↑↓ Select";
+"preset_hint_preview" = "Click Preview";
+"preset_hint_cmd_click_paste" = "⌘Click Paste";
+"preset_hint_alt_click_paste" = "⌥Click Paste";
+"preset_hint_return_paste" = "↩ Paste";
+"preset_hint_return_copy" = "↩ Copy";
+"preset_hint_alt_return_copy" = "⌥↩ Copy";
+"preset_hint_alt_return_paste" = "⌥↩ Paste";
+"preset_hint_esc_close" = "Esc Close";
